@@ -32,9 +32,14 @@ jobs:
       - name: 🐘 Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: 📜 Accept Android SDK Licenses
+      - name: 📜 Accept Android SDK Licenses & Install Platform 35
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || yes | sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
+
+      - name: 📝 Configure local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
       - name: 📦 Install dependencies
         run: npm install --legacy-peer-deps
@@ -45,15 +50,15 @@ jobs:
       - name: 🔄 Copy Web Assets to Android
         run: npx cap copy android
 
-      - name: 🔨 Build Standalone Release APK
+      - name: 🔨 Build Standalone Android APKs
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease assembleDebug --no-daemon --stacktrace
 
       - name: 📤 Upload Standalone APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Aman-Jantri-Release-APK
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
