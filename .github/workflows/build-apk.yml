@@ -13,6 +13,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    permissions:
+      contents: write
     steps:
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
@@ -72,3 +74,14 @@ jobs:
           name: Aman-Jantri-Release-APK
           path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
+
+      - name: 🚀 Publish Direct Download APK Release
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          tag_name: v1.0.0
+          name: Aman Jantri Latest Release
+          body: "Direct Download APK for Aman Jantri (Android)."
+          draft: false
+          prerelease: false
+          files: android/app/build/outputs/apk/**/*.apk
