@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
-import { RotateCcw, SlidersHorizontal, Copy, Check, Trash2, RefreshCw } from 'lucide-react';
+import { RotateCcw, SlidersHorizontal, Copy, Check, Trash2, RefreshCw, Layers } from 'lucide-react';
 
 export default function App() {
   // Amount input for filling Jantri (e.g. 500)
@@ -322,6 +322,12 @@ export default function App() {
     }, 100);
   };
 
+  // Handler for Process Jantri
+  const handleProcessJantri = () => {
+    setStatusMessage(`Process Jantri clicked! (${parchiNumber || '0'} Jantries ready to process)`);
+    setTimeout(() => setStatusMessage(null), 4000);
+  };
+
   // Copy single parchi text (with 01, 02... formatting)
   const handleCopySingleParchi = (parchi: ParchiItem) => {
     const text = `Parchi Number: ${parchi.parchiNumber}\n\n${parchi.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${parchi.totalAmount}`;
@@ -579,7 +585,8 @@ export default function App() {
             </div>
           )}
 
-          <div className="max-w-md pt-1">
+          <div className="max-w-md pt-1 space-y-2.5">
+            {/* Process Parchi Button */}
             <button
               id="process-parchi-button"
               type="button"
@@ -588,6 +595,17 @@ export default function App() {
             >
               <RefreshCw className="w-4 h-4" />
               Process parchi (Generate {parchiNumber || '0'} Parchis)
+            </button>
+
+            {/* Process Jantri Button */}
+            <button
+              id="process-jantri-button"
+              type="button"
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-[0.99] text-white font-semibold py-2.5 px-4 rounded-lg shadow-xs transition-all cursor-pointer text-center text-sm flex items-center justify-center gap-1.5"
+              onClick={handleProcessJantri}
+            >
+              <Layers className="w-4 h-4" />
+              Process jantri (Generate {parchiNumber || '0'} Jantries)
             </button>
           </div>
         </section>
