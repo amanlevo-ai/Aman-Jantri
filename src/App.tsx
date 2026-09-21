@@ -8,9 +8,6 @@ import {
   Trash2,
   RefreshCw,
   Layers,
-  LayoutGrid,
-  FileText,
-  Maximize2,
   X,
   ChevronLeft,
   ChevronRight,
@@ -277,8 +274,6 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [generatedParchis, setGeneratedParchis] = useState<ParchiItem[]>([]);
   const [copiedParchiId, setCopiedParchiId] = useState<number | null>(null);
-  const [copiedAll, setCopiedAll] = useState<boolean>(false);
-  const [resultDisplayMode, setResultDisplayMode] = useState<'boxes' | 'text'>('boxes');
   const [jantriViewMode, setJantriViewMode] = useState<'tabs' | 'all'>('tabs');
   const [activeJantriIndex, setActiveJantriIndex] = useState<number>(0);
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
@@ -541,7 +536,6 @@ export default function App() {
     const data = executeGeneration();
     if (!data) return;
     setGeneratedParchis(data);
-    setResultDisplayMode('text');
     setIsJantriModalOpen(false);
     setStatusMessage(`${data.length} parchis generated! Total: ₹${grandTotal.toLocaleString('en-IN')}`);
     setTimeout(() => setStatusMessage(null), 5000);
@@ -554,16 +548,16 @@ export default function App() {
     }, 100);
   };
 
-  // Handler for Process Jantri: Generates Jantries and opens 100-Boxes Auto-filled Grid View
+  // Handler for Process Jantri:
+  // Shows the EXACT same parchi results auto-filled into 100-boxes! Does NOT regenerate numbers!
   const handleProcessJantri = () => {
-    const data = executeGeneration();
-    if (!data) return;
-    setGeneratedParchis(data);
-    setResultDisplayMode('boxes');
+    if (generatedParchis.length === 0) {
+      const data = executeGeneration();
+      if (!data) return;
+      setGeneratedParchis(data);
+    }
     setActiveJantriIndex(0);
     setIsJantriModalOpen(true);
-    setStatusMessage(`${data.length} Jantries auto-filled in 100-boxes! Total: ₹${grandTotal.toLocaleString('en-IN')}`);
-    setTimeout(() => setStatusMessage(null), 5000);
   };
 
   // Copy single parchi text (with 01, 02... formatting)
@@ -572,16 +566,6 @@ export default function App() {
     navigator.clipboard.writeText(text);
     setCopiedParchiId(parchi.id);
     setTimeout(() => setCopiedParchiId(null), 2000);
-  };
-
-  // Copy all parchis (with 01, 02... formatting)
-  const handleCopyAll = () => {
-    const allText = generatedParchis.map(p => 
-      `Parchi Number: ${p.parchiNumber}\n\n${p.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${p.totalAmount}\n`
-    ).join('\n------------------------\n\n');
-    navigator.clipboard.writeText(allText);
-    setCopiedAll(true);
-    setTimeout(() => setCopiedAll(false), 2000);
   };
 
   return (
@@ -849,258 +833,84 @@ export default function App() {
         </section>
 
         {/* Generated Parchis Display Section - Formatted like user screenshot */}
-        {/* Generated Parchis / Jantris Display Section */}
+        {/* Generated Parchis Display Section - Only Classic Parchi Text List */}
         {generatedParchis.length > 0 && (
           <section id="parchi-results-section" className="mt-6 mb-12 bg-white rounded-xl border border-gray-300 shadow-sm p-3.5 sm:p-6">
             {/* Results Section Header */}
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200 flex-wrap gap-3">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#21324a] flex items-center gap-2">
-                  <span>Generated Results ({generatedParchis.length})</span>
+                  <span>Generated Parchis ({generatedParchis.length})</span>
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
                   Total Sum: <strong className="text-emerald-700 font-bold">₹{generatedParchis.reduce((s, p) => s + p.totalAmount, 0).toLocaleString('en-IN')}</strong> / ₹{grandTotal.toLocaleString('en-IN')}
                 </p>
               </div>
 
-              {/* Top Action & View Toggles */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* View Mode Switcher: 100-Boxes vs Parchi Text */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => setResultDisplayMode('boxes')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                      resultDisplayMode === 'boxes'
-                        ? 'bg-[#21324a] text-white shadow-xs'
-                        : 'text-gray-700 hover:text-gray-900'
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span>100-Boxes</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setResultDisplayMode('text')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                      resultDisplayMode === 'text'
-                        ? 'bg-[#21324a] text-white shadow-xs'
-                        : 'text-gray-700 hover:text-gray-900'
-                    }`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Parchi Text</span>
-                  </button>
-                </div>
-
-                {/* Open in Full Window Modal */}
-                <button
-                  type="button"
-                  onClick={() => setIsJantriModalOpen(true)}
-                  className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow-xs transition-colors cursor-pointer"
-                  title="Open in dedicated full window"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Open Window</span>
-                </button>
-
-                {/* Copy All */}
-                <button
-                  type="button"
-                  onClick={handleCopyAll}
-                  className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-gray-700 text-xs px-3 py-1.5 rounded-lg border border-gray-300 transition-colors cursor-pointer font-medium"
-                >
-                  {copiedAll ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedAll ? 'Copied' : 'Copy All'}</span>
-                </button>
-
-                {/* Clear */}
+              {/* Only Clear Button */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setGeneratedParchis([])}
-                  className="flex items-center gap-1 text-red-600 hover:bg-red-50 text-xs px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
-                  title="Clear"
+                  className="flex items-center gap-1.5 text-red-600 hover:bg-red-50 text-xs px-3 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer font-medium"
+                  title="Clear results"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Clear</span>
+                  <span>Clear</span>
                 </button>
               </div>
             </div>
 
-            {/* Content: 100-Boxes Jantri View */}
-            {resultDisplayMode === 'boxes' ? (
-              <div className="space-y-4">
-                {/* Jantri View Mode Options: Tabs vs All List */}
-                <div className="flex items-center justify-between flex-wrap gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-700">Display Style:</span>
-                    <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-300 text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setJantriViewMode('tabs')}
-                        className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                          jantriViewMode === 'tabs'
-                            ? 'bg-blue-600 text-white shadow-2xs font-bold'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Single Tab View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setJantriViewMode('all')}
-                        className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                          jantriViewMode === 'all'
-                            ? 'bg-blue-600 text-white shadow-2xs font-bold'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        View All Together
-                      </button>
-                    </div>
-                  </div>
-
-                  <span className="text-xs text-gray-500 font-medium">
-                    {generatedParchis.length} Jantris × 100 Boxes = {generatedParchis.length * 100} Total Boxes
-                  </span>
-                </div>
-
-                {/* Mode 1: Tabs View (Single Jantri with Tabs) */}
-                {jantriViewMode === 'tabs' && (
-                  <div className="space-y-3">
-                    {/* Horizontal Scrollable Tabs */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-                      {generatedParchis.map((parchi, idx) => {
-                        const theme = JANTRI_THEMES[idx % JANTRI_THEMES.length];
-                        const isActive = activeJantriIndex === idx;
-                        return (
-                          <button
-                            key={`tab-btn-${parchi.id}`}
-                            type="button"
-                            onClick={() => setActiveJantriIndex(idx)}
-                            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                              isActive ? theme.tabActive : theme.tabInactive
-                            }`}
-                          >
-                            <span>Jantri #{parchi.parchiNumber}</span>
-                            <span className="text-[10px] font-mono opacity-80">
-                              (₹{parchi.totalAmount})
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Quick Prev / Next Buttons */}
-                    <div className="flex items-center justify-between text-xs text-gray-600 px-1">
-                      <button
-                        type="button"
-                        disabled={activeJantriIndex === 0}
-                        onClick={() => setActiveJantriIndex((prev) => Math.max(0, prev - 1))}
-                        className="px-2.5 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-medium"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                        Previous
-                      </button>
-                      <span className="font-semibold text-gray-800">
-                        Viewing Jantri {activeJantriIndex + 1} of {generatedParchis.length}
+            {/* Content: ONLY Classic Parchi Text List */}
+            <div className="space-y-8">
+              {generatedParchis.map((parchi) => (
+                <div
+                  key={parchi.id}
+                  id={`parchi-card-${parchi.parchiNumber}`}
+                  className="pb-6 border-b border-gray-200 last:border-b-0 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#21324a]">
+                      Parchi Number: {parchi.parchiNumber}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded">
+                        {parchi.houses.length} Houses
                       </span>
                       <button
                         type="button"
-                        disabled={activeJantriIndex === generatedParchis.length - 1}
-                        onClick={() => setActiveJantriIndex((prev) => Math.min(generatedParchis.length - 1, prev + 1))}
-                        className="px-2.5 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-medium"
+                        onClick={() => handleCopySingleParchi(parchi)}
+                        className="text-gray-400 hover:text-gray-700 p-1.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                        title="Copy this parchi"
                       >
-                        Next
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        {copiedParchiId === parchi.id ? (
+                          <Check className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
-
-                    {/* Active Single Jantri 100-Boxes Grid */}
-                    {generatedParchis[activeJantriIndex] && (
-                      <SingleJantriBoxGrid
-                        parchi={generatedParchis[activeJantriIndex]}
-                        themeIndex={activeJantriIndex}
-                        columns={columns}
-                        gridCells={gridCells}
-                        formatWithLeadingZero={formatWithLeadingZero}
-                        onCopy={() => handleCopySingleParchi(generatedParchis[activeJantriIndex])}
-                        copied={copiedParchiId === generatedParchis[activeJantriIndex].id}
-                      />
-                    )}
                   </div>
-                )}
 
-                {/* Mode 2: View All Together (All Jantris stacked one after another with distinct colors) */}
-                {jantriViewMode === 'all' && (
-                  <div className="space-y-6">
-                    {generatedParchis.map((parchi, idx) => (
-                      <SingleJantriBoxGrid
-                        key={`all-jantri-${parchi.id}`}
-                        parchi={parchi}
-                        themeIndex={idx}
-                        columns={columns}
-                        gridCells={gridCells}
-                        formatWithLeadingZero={formatWithLeadingZero}
-                        onCopy={() => handleCopySingleParchi(parchi)}
-                        copied={copiedParchiId === parchi.id}
-                      />
+                  <div className="text-gray-800 text-sm sm:text-base font-normal tracking-wide leading-relaxed py-1">
+                    {parchi.houses.map((house, idx) => (
+                      <span key={`${parchi.id}-house-${idx}`} className="inline-block mr-2.5 mb-1.5">
+                        <span className="font-semibold text-gray-900">{formatWithLeadingZero(house.number)}</span>
+                        <span className="text-gray-500">-</span>
+                        <span className="font-medium text-gray-800">{house.amount}</span>
+                        {idx < parchi.houses.length - 1 && <span className="text-gray-400">,</span>}
+                      </span>
                     ))}
                   </div>
-                )}
-              </div>
-            ) : (
-              /* Content: Classic Parchi Text List */
-              <div className="space-y-8">
-                {generatedParchis.map((parchi) => (
-                  <div
-                    key={parchi.id}
-                    id={`parchi-card-${parchi.parchiNumber}`}
-                    className="pb-6 border-b border-gray-200 last:border-b-0 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#21324a]">
-                        Parchi Number: {parchi.parchiNumber}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded">
-                          {parchi.houses.length} Houses
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopySingleParchi(parchi)}
-                          className="text-gray-400 hover:text-gray-700 p-1.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
-                          title="Copy this parchi"
-                        >
-                          {copiedParchiId === parchi.id ? (
-                            <Check className="w-4 h-4 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
 
-                    <div className="text-gray-800 text-sm sm:text-base font-normal tracking-wide leading-relaxed py-1">
-                      {parchi.houses.map((house, idx) => (
-                        <span key={`${parchi.id}-house-${idx}`} className="inline-block mr-2.5 mb-1.5">
-                          <span className="font-semibold text-gray-900">{formatWithLeadingZero(house.number)}</span>
-                          <span className="text-gray-500">-</span>
-                          <span className="font-medium text-gray-800">{house.amount}</span>
-                          {idx < parchi.houses.length - 1 && <span className="text-gray-400">,</span>}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="pt-1">
-                      <div className="text-2xl sm:text-3xl font-semibold text-[#21324a]">
-                        Total amount: {parchi.totalAmount}
-                      </div>
+                  <div className="pt-1">
+                    <div className="text-2xl sm:text-3xl font-semibold text-[#21324a]">
+                      Total amount: {parchi.totalAmount}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
 
             {/* Results Aggregate Footer */}
             <div className="mt-6 pt-4 border-t border-gray-300 flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3.5 rounded-lg">
@@ -1117,18 +927,10 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleProcessJantri}
-                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md font-semibold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                  className="text-xs bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Regenerate Jantris</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleProcessParchi}
-                  className="text-xs bg-[#21324a] hover:bg-[#2c4261] text-white px-3 py-1.5 rounded-md font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Regenerate Parchis</span>
+                  <span>Open in Jantri Window</span>
                 </button>
               </div>
             </div>
