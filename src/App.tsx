@@ -463,23 +463,23 @@ export default function App() {
         {/* Live Status Indicator */}
         <div className="flex items-center justify-between text-[11px] sm:text-xs text-gray-600 mb-1.5 px-0.5">
           <div className="flex items-center gap-1.5 truncate">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-            <span className="truncate">Live: <strong className="text-gray-900">{amount || '0'}</strong> / box</span>
+            <span className="inline-block w-2 h-2 rounded-full bg-blue-600 animate-pulse shrink-0"></span>
+            <span className="truncate text-blue-900 font-medium">Live Amount: <strong className="text-blue-950 font-bold">₹{amount || '0'}</strong> / box</span>
           </div>
-          <span className="text-gray-500 font-mono shrink-0">100 Boxes (10×10)</span>
+          <span className="text-blue-600 font-semibold font-mono text-[10px] sm:text-xs bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60 shrink-0">100 Boxes (10×10)</span>
         </div>
 
-        {/* 100 Text Boxes Responsive Grid - Zero horizontal scroll on Mobile, Tablet & Desktop */}
+        {/* 100 Text Boxes Responsive Grid - Modern Blue Design */}
         <div
           id="jantri-table-container"
-          className="w-full bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden"
+          className="w-full bg-white rounded-xl border border-blue-300/80 shadow-md overflow-hidden"
         >
           <div className="w-full grid grid-cols-10 border-collapse">
-            {/* Column Headers 1 to 10 */}
+            {/* Column Headers 1 to 10 with sleek Royal Blue gradient */}
             {columns.map((colNum) => (
               <div
                 key={`col-header-${colNum}`}
-                className="bg-slate-100 py-1 sm:py-1.5 font-bold text-gray-700 text-[10px] sm:text-xs md:text-sm text-center border-b border-r border-gray-300 last:border-r-0"
+                className="bg-gradient-to-b from-[#1e3a8a] to-[#1e40af] py-1 sm:py-1.5 font-bold text-white text-[10px] sm:text-xs md:text-sm text-center border-b border-r border-blue-900/40 last:border-r-0 tracking-wide select-none shadow-xs"
               >
                 {colNum}
               </div>
@@ -490,28 +490,28 @@ export default function App() {
               rowCells.map((cell) => (
                 <div
                   key={`cell-${cell.label}`}
-                  className={`border-b border-r border-gray-200 last:border-r-0 ${
+                  className={`border-b border-r border-blue-100/90 last:border-r-0 ${
                     rowIndex === 9 ? 'border-b-0' : ''
-                  } bg-white hover:bg-slate-50 transition-colors p-[1px] sm:p-1 flex flex-col justify-between`}
+                  } bg-white hover:bg-blue-50/70 transition-colors p-[1.5px] sm:p-1.5 flex flex-col justify-between`}
                 >
-                  {/* Top Badge: Cell Number (1, 2, 3... up to 100) */}
+                  {/* Top Badge: Modern Blue Pill Badge */}
                   <div className="flex items-center justify-start">
                     <span
-                      className="bg-[#fce494] text-[#4a3b00] text-[9px] sm:text-[10px] md:text-[11px] font-bold px-0.5 sm:px-1 rounded-xs select-none leading-none shadow-2xs"
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] sm:text-[10px] md:text-[11px] font-bold px-1 sm:px-1.5 py-0.5 rounded-sm select-none leading-none shadow-xs tracking-tight"
                       title={`Number: ${cell.label}`}
                     >
                       {cell.label}
                     </span>
                   </div>
 
-                  {/* Bottom: Read-Only Amount Text Box */}
-                  <div className="mt-0.5 w-full">
+                  {/* Bottom: High-Contrast Amount Display */}
+                  <div className="mt-0.5 sm:mt-1 w-full">
                     <input
                       type="text"
                       readOnly
                       value={amount}
                       aria-label={`Box ${cell.label}`}
-                      className="w-full text-center font-bold text-gray-900 text-[10px] sm:text-xs md:text-sm py-0.5 px-0 bg-transparent border-0 outline-none cursor-default select-all truncate"
+                      className="w-full text-center font-extrabold text-blue-950 text-[11px] sm:text-xs md:text-sm py-0.5 px-0 bg-transparent border-0 outline-none cursor-default select-all truncate tracking-tight"
                     />
                   </div>
                 </div>
@@ -522,12 +522,12 @@ export default function App() {
 
         {/* Grand Total - Exactly 100 boxes */}
         <section id="grand-total-section" className="mt-3 sm:mt-4 mb-3 sm:mb-4">
-          <div className="bg-white p-2.5 sm:p-3.5 rounded-lg border border-gray-200 shadow-xs flex items-center justify-between flex-wrap gap-2">
+          <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50/50 p-3 sm:p-3.5 rounded-xl border border-blue-200 shadow-xs flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm sm:text-base font-bold text-gray-800">
-              Grand Total: <span className="font-mono text-base sm:text-lg text-[#21324a]">₹{grandTotal.toLocaleString('en-IN')}</span>
+              Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
-            <div className="text-[11px] sm:text-xs text-gray-500 font-medium">
-              (100 boxes × {amount || '0'} = ₹{grandTotal.toLocaleString('en-IN')})
+            <div className="text-[11px] sm:text-xs text-blue-600/80 font-medium bg-white px-2 py-0.5 rounded-md border border-blue-100 shadow-2xs">
+              100 boxes × {amount || '0'} = ₹{grandTotal.toLocaleString('en-IN')}
             </div>
           </div>
         </section>
