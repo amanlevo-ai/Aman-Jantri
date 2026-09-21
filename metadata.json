@@ -1,0 +1,7 @@
+{
+  "name": "Aman Parchi software",
+  "description": "100-number jantri grid with live amount filling, read-only boxes, and total calculation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

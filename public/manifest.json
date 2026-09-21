@@ -1,0 +1,9 @@
+{
+  "short_name": "Aman Parchi",
+  "name": "Aman Parchi Software",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#21324a",
+  "background_color": "#21324a",
+  "orientation": "portrait"
+}

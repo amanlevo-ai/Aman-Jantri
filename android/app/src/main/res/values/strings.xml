@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Aman Jantri</string>
+    <string name="title_activity_main">Aman Jantri</string>
+    <string name="package_name">com.amanjantri.app</string>
+    <string name="custom_url_scheme">com.amanjantri.app</string>
+</resources>
