@@ -549,12 +549,12 @@ export default function App() {
   };
 
   // Handler for Process Jantri:
-  // Shows the EXACT same parchi results auto-filled into 100-boxes! Does NOT regenerate numbers!
+  // Shows the EXACT same parchi results auto-filled into 100-boxes! Active ONLY after Process Parchi!
   const handleProcessJantri = () => {
     if (generatedParchis.length === 0) {
-      const data = executeGeneration();
-      if (!data) return;
-      setGeneratedParchis(data);
+      setStatusMessage('Pehle "Process parchi" par click karein!');
+      setTimeout(() => setStatusMessage(null), 3500);
+      return;
     }
     setActiveJantriIndex(0);
     setIsJantriModalOpen(true);
@@ -819,15 +819,29 @@ export default function App() {
               Process parchi (Generate {parchiNumber || '0'} Parchis)
             </button>
 
-            {/* Process Jantri Button */}
+            {/* Process Jantri Button - Active ONLY after Process Parchi is clicked */}
             <button
               id="process-jantri-button"
               type="button"
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-[0.99] text-white font-semibold py-2.5 px-4 rounded-lg shadow-xs transition-all cursor-pointer text-center text-sm flex items-center justify-center gap-1.5"
+              disabled={generatedParchis.length === 0}
+              className={`w-full font-semibold py-2.5 px-4 rounded-lg transition-all text-center text-sm flex items-center justify-center gap-1.5 ${
+                generatedParchis.length > 0
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-xs active:scale-[0.99] cursor-pointer'
+                  : 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed opacity-70'
+              }`}
               onClick={handleProcessJantri}
+              title={
+                generatedParchis.length > 0
+                  ? `Open filled 100-boxes Jantri (${generatedParchis.length} Jantries)`
+                  : 'Pehle "Process parchi" par click karein'
+              }
             >
               <Layers className="w-4 h-4" />
-              Process jantri (Generate {parchiNumber || '0'} Jantries)
+              <span>
+                {generatedParchis.length > 0
+                  ? `Process jantri (View ${generatedParchis.length} Jantries)`
+                  : `Process jantri (Generate ${parchiNumber || '0'} Jantries)`}
+              </span>
             </button>
           </div>
         </section>
