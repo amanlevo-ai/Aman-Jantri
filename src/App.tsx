@@ -267,9 +267,6 @@ export default function App() {
         appearanceCount.set(numStr, (appearanceCount.get(numStr) ?? 0) + 1);
       });
 
-      // Sort numbers numerically for cleaner display (01, 02, 05...)
-      selectedNumbers.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-
       // Distribute thisParchiTotal across targetHousesCount in multiples of houseStep
       const houseAmounts: number[] = new Array(targetHousesCount).fill(houseStep);
       let remaining = thisParchiTotal - (targetHousesCount * houseStep);
@@ -295,6 +292,12 @@ export default function App() {
         number: numStr,
         amount: houseAmounts[hIdx],
       }));
+
+      // Randomly shuffle houses so there is no ascending order (shuffled format)
+      for (let i = houses.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [houses[i], houses[j]] = [houses[j], houses[i]];
+      }
 
       const finalParchiSum = houses.reduce((s, h) => s + h.amount, 0);
 
