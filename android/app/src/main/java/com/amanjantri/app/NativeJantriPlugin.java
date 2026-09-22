@@ -136,7 +136,7 @@ public class NativeJantriPlugin extends Plugin {
 
             if (saved) {
                 getActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), "Jantri photo Gallery (Pictures/AmanJantri) mein save ho gayi!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "Jantri image saved to Gallery successfully!", Toast.LENGTH_LONG).show();
                 });
                 JSObject ret = new JSObject();
                 ret.put("success", true);

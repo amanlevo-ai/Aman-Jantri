@@ -697,8 +697,9 @@ function renderJantriToCanvas(
   formatWithLeadingZero: (val: number | string) => string
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  const width = 1000;
-  const height = 1200;
+  // High-resolution 2200x2600 px (Ultra-HD, crystal-clear zoom on WhatsApp & Gallery)
+  const width = 2200;
+  const height = 2600;
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
@@ -725,44 +726,48 @@ function renderJantriToCanvas(
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
 
+  const margin = 16;
+  const contentWidth = width - margin * 2;
+
   // Outer border
   ctx.strokeStyle = t.border;
-  ctx.lineWidth = 4;
-  ctx.strokeRect(8, 8, width - 16, height - 16);
+  ctx.lineWidth = 6;
+  ctx.strokeRect(margin, margin, contentWidth, height - margin * 2);
 
   // Header Banner
+  const headerHeight = 150;
   ctx.fillStyle = t.header;
-  ctx.fillRect(8, 8, width - 16, 90);
+  ctx.fillRect(margin, margin, contentWidth, headerHeight);
 
   // Header Title
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 36px sans-serif';
+  ctx.font = 'bold 68px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`Jantri #${parchi.parchiNumber}`, 30, 65);
+  ctx.fillText(`Jantri #${parchi.parchiNumber}`, margin + 35, margin + 98);
 
   // Grid Dimensions (10 rows x 11 cols)
-  const gridStartX = 8;
-  const gridStartY = 98;
-  const colHeaderHeight = 44;
-  const footerHeight = 65;
+  const gridStartX = margin;
+  const gridStartY = margin + headerHeight;
+  const colHeaderHeight = 84;
+  const footerHeight = 120;
   const numCols = 11;
-  const cellWidth = (width - 16) / numCols;
-  const cellHeight = (height - 16 - 90 - footerHeight - colHeaderHeight) / 10;
+  const cellWidth = contentWidth / numCols;
+  const cellHeight = (height - margin * 2 - headerHeight - footerHeight - colHeaderHeight) / 10;
 
   // Column Headers 1 to 10
   const cols = gridMode === '0-99' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   ctx.fillStyle = t.header;
-  ctx.fillRect(gridStartX, gridStartY, width - 16, colHeaderHeight);
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 1;
+  ctx.fillRect(gridStartX, gridStartY, contentWidth, colHeaderHeight);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2;
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 20px sans-serif';
+  ctx.font = 'bold 42px sans-serif';
   ctx.textAlign = 'center';
 
   cols.forEach((colNum, c) => {
     const x = gridStartX + c * cellWidth;
-    ctx.fillText(String(colNum), x + cellWidth / 2, gridStartY + 29);
+    ctx.fillText(String(colNum), x + cellWidth / 2, gridStartY + 56);
     if (c > 0) {
       ctx.beginPath();
       ctx.moveTo(x, gridStartY);
@@ -773,7 +778,7 @@ function renderJantriToCanvas(
 
   // 11th Column Header: Total
   const totalHeaderX = gridStartX + 10 * cellWidth;
-  const totalHeaderW = (width - 16) - 10 * cellWidth;
+  const totalHeaderW = contentWidth - 10 * cellWidth;
   ctx.fillStyle = '#d97706'; // Amber-600
   ctx.fillRect(totalHeaderX, gridStartY, totalHeaderW, colHeaderHeight);
   ctx.beginPath();
@@ -783,9 +788,9 @@ function renderJantriToCanvas(
   ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 20px sans-serif';
+  ctx.font = 'bold 40px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('Total', totalHeaderX + totalHeaderW / 2, gridStartY + 29);
+  ctx.fillText('Total', totalHeaderX + totalHeaderW / 2, gridStartY + 56);
 
   // Grid Cells (10 rows x 11 cols: 10 house cells + 1 row total cell)
   const tableStartY = gridStartY + colHeaderHeight;
@@ -820,43 +825,50 @@ function renderJantriToCanvas(
 
       // Cell border
       ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
 
-      // Box Number Badge (Top-left)
-      const badgeW = 32;
-      const badgeH = 20;
+      // Box Number Badge (Top-left, large & prominent)
+      const badgeW = 72;
+      const badgeH = 46;
       ctx.fillStyle = isFilled ? t.badge : '#94a3b8';
       if ('roundRect' in ctx) {
         ctx.beginPath();
-        (ctx as any).roundRect(cellX + 3, cellY + 3, badgeW, badgeH, 4);
+        (ctx as any).roundRect(cellX + 8, cellY + 8, badgeW, badgeH, 8);
         ctx.fill();
       } else {
-        ctx.fillRect(cellX + 3, cellY + 3, badgeW, badgeH);
+        ctx.fillRect(cellX + 8, cellY + 8, badgeW, badgeH);
       }
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(label, cellX + 3 + badgeW / 2, cellY + 17);
+      ctx.fillText(label, cellX + 8 + badgeW / 2, cellY + 8 + 33);
 
-      // Amount (Center/Bottom)
+      // Amount (Center/Bottom, BIG & BOLD font to fill the box nicely)
       if (isFilled) {
         ctx.fillStyle = t.text;
-        ctx.font = 'bold 22px sans-serif';
+        const amtStr = String(cellAmount);
+        if (amtStr.length > 5) {
+          ctx.font = 'bold 48px sans-serif';
+        } else if (amtStr.length > 4) {
+          ctx.font = 'bold 54px sans-serif';
+        } else {
+          ctx.font = 'bold 62px sans-serif';
+        }
         ctx.textAlign = 'center';
-        ctx.fillText(String(cellAmount), cellX + cellWidth / 2, cellY + cellHeight - 22);
+        ctx.fillText(amtStr, cellX + cellWidth / 2, cellY + cellHeight - 36);
       } else {
         ctx.fillStyle = '#cbd5e1';
-        ctx.font = '300 18px sans-serif';
+        ctx.font = '300 48px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('-', cellX + cellWidth / 2, cellY + cellHeight - 22);
+        ctx.fillText('-', cellX + cellWidth / 2, cellY + cellHeight - 36);
       }
     }
 
     // 11th Column: Row Total Cell
     const totalCellX = gridStartX + 10 * cellWidth;
-    const totalCellW = (width - 16) - 10 * cellWidth;
+    const totalCellW = contentWidth - 10 * cellWidth;
     const totalCellY = tableStartY + r * cellHeight;
 
     // Row total background & border
@@ -864,35 +876,42 @@ function renderJantriToCanvas(
     ctx.fillRect(totalCellX, totalCellY, totalCellW, cellHeight);
 
     ctx.strokeStyle = '#fde68a';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.strokeRect(totalCellX, totalCellY, totalCellW, cellHeight);
 
-    // Row total amount text (centered, no R1/R2 badge)
+    // Row total amount text (centered, large & bold font, no R1/R2 badge)
     if (rowTotal > 0) {
       ctx.fillStyle = '#451a03';
-      ctx.font = 'bold 24px monospace';
+      const totStr = String(rowTotal);
+      if (totStr.length > 5) {
+        ctx.font = 'bold 48px monospace';
+      } else if (totStr.length > 4) {
+        ctx.font = 'bold 54px monospace';
+      } else {
+        ctx.font = 'bold 62px monospace';
+      }
       ctx.textAlign = 'center';
-      ctx.fillText(String(rowTotal), totalCellX + totalCellW / 2, totalCellY + cellHeight / 2 + 8);
+      ctx.fillText(totStr, totalCellX + totalCellW / 2, totalCellY + cellHeight / 2 + 20);
     } else {
       ctx.fillStyle = '#d1d5db';
-      ctx.font = '300 20px sans-serif';
+      ctx.font = '300 48px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('-', totalCellX + totalCellW / 2, totalCellY + cellHeight / 2 + 7);
+      ctx.fillText('-', totalCellX + totalCellW / 2, totalCellY + cellHeight / 2 + 16);
     }
   }
 
   // Footer Banner
-  const footerY = height - 8 - footerHeight;
+  const footerY = height - margin - footerHeight;
   ctx.fillStyle = '#f8fafc';
-  ctx.fillRect(gridStartX, footerY, width - 16, footerHeight);
+  ctx.fillRect(gridStartX, footerY, contentWidth, footerHeight);
   ctx.strokeStyle = '#cbd5e1';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(gridStartX, footerY, width - 16, footerHeight);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(gridStartX, footerY, contentWidth, footerHeight);
 
   ctx.fillStyle = t.header;
-  ctx.font = 'bold 28px monospace';
+  ctx.font = 'bold 58px monospace';
   ctx.textAlign = 'right';
-  ctx.fillText(`Jantri Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, footerY + 42);
+  ctx.fillText(`Jantri Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 45, footerY + 76);
 
   return canvas;
 }
@@ -901,11 +920,11 @@ function renderJantriToCanvas(
   const handleShareJantriAsJpg = async (parchi: ParchiItem) => {
     try {
       setSharingJantriId(parchi.id);
-      setStatusMessage(`Sharing Jantri #${parchi.parchiNumber}...`);
+      setStatusMessage(`Preparing Jantri #${parchi.parchiNumber}...`);
 
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
       const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
       const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
       const base64Data = dataUrl.split(',')[1];
 
@@ -916,7 +935,7 @@ function renderJantriToCanvas(
             base64: base64Data,
             fileName: fileName,
           });
-          setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+          setStatusMessage(`Jantri #${parchi.parchiNumber} ready to share!`);
           setTimeout(() => setStatusMessage(null), 3000);
           return;
         } catch (nativeErr: any) {
@@ -982,11 +1001,11 @@ function renderJantriToCanvas(
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      setStatusMessage(`Jantri #${parchi.parchiNumber} JPG saved!`);
+      setStatusMessage(`Jantri #${parchi.parchiNumber} downloaded!`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to share Jantri JPG:', err);
-      alert('Error sharing Jantri: ' + (err?.message || err));
+      alert('Error sharing Jantri image: ' + (err?.message || err));
       setStatusMessage('Error sharing Jantri image.');
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {
@@ -1002,7 +1021,7 @@ function renderJantriToCanvas(
 
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
       const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
       const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
       const base64Data = dataUrl.split(',')[1];
 
@@ -1013,7 +1032,7 @@ function renderJantriToCanvas(
             base64: base64Data,
             fileName: fileName,
           });
-          setStatusMessage(`Jantri #${parchi.parchiNumber} Gallery mein save ho gayi!`);
+          setStatusMessage(`Jantri #${parchi.parchiNumber} saved to Gallery successfully!`);
           setTimeout(() => setStatusMessage(null), 3500);
           return;
         } catch (nativeErr: any) {
@@ -1040,12 +1059,12 @@ function renderJantriToCanvas(
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      setStatusMessage(`Jantri #${parchi.parchiNumber} downloaded!`);
+      setStatusMessage(`Jantri #${parchi.parchiNumber} saved successfully!`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to download Jantri JPG:', err);
-      alert('Error downloading Jantri: ' + (err?.message || err));
-      setStatusMessage('Error downloading Jantri image.');
+      alert('Error saving Jantri image: ' + (err?.message || err));
+      setStatusMessage('Error saving Jantri image.');
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {
       setDownloadingJantriId(null);
