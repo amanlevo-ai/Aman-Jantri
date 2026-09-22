@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.9.0
-          name: Aman Jantri v1.9.0 (Theme-Matching Light Color for Blank Boxes)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring theme-matching light colored badges for unfilled boxes (no dull grey) in both live UI and Ultra-HD JPG export."
+          tag_name: v2.0.0
+          name: Aman Jantri v2.0.0 (Clean App Header & Fixed Text Shifting)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring App Name & Logo in Jantri Window Header, clean borderless view without mode toggles or close icon, back navigation, and zero text shifting/jitter when switching jantri numbers."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

@@ -23,6 +23,7 @@ import {
   Share2,
   Download,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface JantriTheme {
@@ -409,6 +410,18 @@ export default function App() {
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [pullY]);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    if (!isJantriModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsJantriModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isJantriModalOpen]);
 
   // 10 column headers: 1 to 10 (or 0 to 9 in 0-99 mode) without leading zeros
   const columns = useMemo(() => {
@@ -1099,9 +1112,14 @@ function renderJantriToCanvas(
 
       {/* Top App Header */}
       <header id="main-header" className="bg-[#21324a] text-white px-3 sm:px-4 py-2 sm:py-2.5 shadow-md flex items-center justify-between sticky top-0 z-30">
-        <h1 className="text-base sm:text-xl font-bold tracking-wide text-amber-400">
-          Aman Parchi software
-        </h1>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-xs text-slate-900 font-black text-xs select-none">
+            A
+          </div>
+          <h1 className="text-base sm:text-xl font-bold tracking-wide text-amber-400">
+            Aman Parchi software
+          </h1>
+        </div>
 
         <div className="flex items-center gap-2 text-xs">
           <button
@@ -1486,53 +1504,23 @@ function renderJantriToCanvas(
           >
             <div className="w-full max-w-5xl mx-auto flex-1 bg-[#f8fafc] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-700">
               {/* Modal Top Header */}
-              <div className="bg-[#1e293b] text-white px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between border-b border-slate-700 shrink-0 flex-wrap gap-2">
-                <div>
-                  <h2 className="text-base sm:text-xl font-bold tracking-wide flex items-center gap-2 text-white">
-                    <Layers className="w-5 h-5 text-emerald-400" />
-                    <span>Filled Jantris (100-Boxes Window)</span>
-                  </h2>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    {generatedParchis.length} Jantris • Total: ₹{grandTotal.toLocaleString('en-IN')}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-3">
-                  {/* View Style Switcher in Modal */}
-                  <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-600 text-xs font-medium">
-                    <button
-                      type="button"
-                      onClick={() => setJantriViewMode('tabs')}
-                      className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                        jantriViewMode === 'tabs'
-                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
-                          : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      Single Tab
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setJantriViewMode('all')}
-                      className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                        jantriViewMode === 'all'
-                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
-                          : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      View All
-                    </button>
-                  </div>
-
-                  {/* Close Modal Button */}
+              <div className="bg-[#21324a] text-white px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between border-b border-slate-700 shrink-0">
+                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsJantriModalOpen(false)}
-                    className="bg-red-600/90 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                    className="p-1 -ml-1 text-amber-400 hover:text-white transition-colors cursor-pointer rounded-lg flex items-center"
+                    title="Back"
+                    aria-label="Back"
                   >
-                    <X className="w-4 h-4" />
-                    <span>Close Window</span>
+                    <ArrowLeft className="w-5 h-5" />
                   </button>
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-xs text-slate-900 font-black text-xs select-none">
+                    A
+                  </div>
+                  <h2 className="text-base sm:text-xl font-bold tracking-wide text-amber-400">
+                    Aman Parchi software
+                  </h2>
                 </div>
               </div>
 
@@ -1565,26 +1553,28 @@ function renderJantriToCanvas(
                     </div>
 
                     {/* Navigation */}
-                    <div className="flex items-center justify-between text-xs text-gray-600 px-1">
+                    <div className="flex items-center justify-between text-xs text-gray-600 px-1 select-none">
                       <button
                         type="button"
                         disabled={activeJantriIndex === 0}
                         onClick={() => setActiveJantriIndex((prev) => Math.max(0, prev - 1))}
-                        className="px-3 py-1 rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-semibold"
+                        className="w-28 shrink-0 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1 cursor-pointer font-semibold shadow-2xs transition-colors"
                       >
                         <ChevronLeft className="w-4 h-4" />
-                        Prev Jantri
+                        <span>Prev Jantri</span>
                       </button>
-                      <span className="font-bold text-gray-800 text-sm">
-                        Jantri #{activeJantriIndex + 1} of {generatedParchis.length}
-                      </span>
+                      <div className="flex-1 flex items-center justify-center text-center px-2">
+                        <span className="font-bold text-gray-800 text-sm sm:text-base tabular-nums select-none tracking-normal">
+                          Jantri #{activeJantriIndex + 1} of {generatedParchis.length}
+                        </span>
+                      </div>
                       <button
                         type="button"
                         disabled={activeJantriIndex === generatedParchis.length - 1}
                         onClick={() => setActiveJantriIndex((prev) => Math.min(generatedParchis.length - 1, prev + 1))}
-                        className="px-3 py-1 rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-semibold"
+                        className="w-28 shrink-0 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1 cursor-pointer font-semibold shadow-2xs transition-colors"
                       >
-                        Next Jantri
+                        <span>Next Jantri</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
