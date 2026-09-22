@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
+import { toJpeg } from 'html-to-image';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import {
   RotateCcw,
   SlidersHorizontal,
@@ -11,6 +15,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Share2,
+  Loader2,
 } from 'lucide-react';
 
 interface JantriTheme {
@@ -144,16 +150,16 @@ function SingleJantriBoxGrid({
   columns,
   gridCells,
   formatWithLeadingZero,
-  onCopy,
-  copied,
+  onShare,
+  isSharing = false,
 }: {
   parchi: ParchiItem;
   themeIndex: number;
   columns: number[];
   gridCells: { label: string; col: number; row: number }[][];
   formatWithLeadingZero: (val: number | string) => string;
-  onCopy?: () => void;
-  copied?: boolean;
+  onShare?: () => void;
+  isSharing?: boolean;
 }) {
   const theme = JANTRI_THEMES[themeIndex % JANTRI_THEMES.length];
 
@@ -166,7 +172,10 @@ function SingleJantriBoxGrid({
   }, [parchi, formatWithLeadingZero]);
 
   return (
-    <div className={`w-full bg-white rounded-xl border ${theme.borderColor} shadow-sm overflow-hidden`}>
+    <div
+      id={`jantri-card-capture-${parchi.id}`}
+      className={`w-full bg-white rounded-xl border ${theme.borderColor} shadow-sm overflow-hidden`}
+    >
       {/* Header */}
       <div className={`${theme.headerBg} text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between shadow-xs flex-wrap gap-2`}>
         <div className="flex items-center gap-2">
@@ -181,15 +190,26 @@ function SingleJantriBoxGrid({
           <span className="font-mono text-xs sm:text-sm font-black bg-black/25 px-2.5 py-1 rounded-md text-white">
             Total: ₹{parchi.totalAmount.toLocaleString('en-IN')}
           </span>
-          {onCopy && (
+          {onShare && (
             <button
               type="button"
-              onClick={onCopy}
-              className="bg-white/20 hover:bg-white/30 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer"
-              title="Copy this Jantri"
+              data-capture-hide="true"
+              onClick={onShare}
+              disabled={isSharing}
+              className="bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs px-3 py-1 rounded-md flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-xs disabled:opacity-50"
+              title="Share this Jantri as JPG Image"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+              {isSharing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                  <span>Preparing...</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 text-white" />
+                  <span>Share JPG</span>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -277,6 +297,7 @@ export default function App() {
   const [jantriViewMode, setJantriViewMode] = useState<'tabs' | 'all'>('tabs');
   const [activeJantriIndex, setActiveJantriIndex] = useState<number>(0);
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
+  const [sharingJantriId, setSharingJantriId] = useState<number | null>(null);
 
   // 10 column headers: 1 to 10 (or 0 to 9 in 0-99 mode) without leading zeros
   const columns = useMemo(() => {
@@ -566,6 +587,89 @@ export default function App() {
     navigator.clipboard.writeText(text);
     setCopiedParchiId(parchi.id);
     setTimeout(() => setCopiedParchiId(null), 2000);
+  };
+
+  // Share Jantri as JPG Image (Native Android Share / Web Share / Download)
+  const handleShareJantriAsJpg = async (parchi: ParchiItem) => {
+    const cardEl = document.getElementById(`jantri-card-capture-${parchi.id}`);
+    if (!cardEl) {
+      setStatusMessage('Jantri element not found!');
+      return;
+    }
+
+    try {
+      setSharingJantriId(parchi.id);
+      setStatusMessage(`Generating JPG for Jantri #${parchi.parchiNumber}...`);
+
+      const dataUrl = await toJpeg(cardEl, {
+        quality: 0.95,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        filter: (domNode) => {
+          const el = domNode as HTMLElement;
+          return el?.dataset?.captureHide !== 'true';
+        },
+      });
+
+      const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+
+      // 1. Check if running in Capacitor Native (Android App)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const base64Data = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '');
+          const savedFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Cache,
+          });
+
+          await Share.share({
+            title: `Jantri #${parchi.parchiNumber}`,
+            text: `Aman Jantri #${parchi.parchiNumber} - Total: ₹${parchi.totalAmount}`,
+            url: savedFile.uri,
+            dialogTitle: `Share Jantri #${parchi.parchiNumber}`,
+          });
+
+          setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+          setTimeout(() => setStatusMessage(null), 3000);
+          return;
+        } catch (nativeErr) {
+          console.warn('Native share failed, attempting fallback', nativeErr);
+        }
+      }
+
+      // 2. Web Share API with File (Supported in modern mobile browsers)
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Jantri #${parchi.parchiNumber}`,
+          text: `Aman Jantri #${parchi.parchiNumber} - Total: ₹${parchi.totalAmount}`,
+        });
+        setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+        setTimeout(() => setStatusMessage(null), 3000);
+      } else {
+        // 3. Fallback: Direct Download JPG
+        const downloadLink = document.createElement('a');
+        downloadLink.href = dataUrl;
+        downloadLink.download = fileName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        setStatusMessage(`Jantri #${parchi.parchiNumber} JPG saved!`);
+        setTimeout(() => setStatusMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to share Jantri JPG:', err);
+      setStatusMessage('Error creating JPG image.');
+      setTimeout(() => setStatusMessage(null), 3500);
+    } finally {
+      setSharingJantriId(null);
+    }
   };
 
   return (
@@ -1070,8 +1174,8 @@ export default function App() {
                         columns={columns}
                         gridCells={gridCells}
                         formatWithLeadingZero={formatWithLeadingZero}
-                        onCopy={() => handleCopySingleParchi(generatedParchis[activeJantriIndex])}
-                        copied={copiedParchiId === generatedParchis[activeJantriIndex].id}
+                        onShare={() => handleShareJantriAsJpg(generatedParchis[activeJantriIndex])}
+                        isSharing={sharingJantriId === generatedParchis[activeJantriIndex].id}
                       />
                     )}
                   </div>
@@ -1086,8 +1190,8 @@ export default function App() {
                         columns={columns}
                         gridCells={gridCells}
                         formatWithLeadingZero={formatWithLeadingZero}
-                        onCopy={() => handleCopySingleParchi(parchi)}
-                        copied={copiedParchiId === parchi.id}
+                        onShare={() => handleShareJantriAsJpg(parchi)}
+                        isSharing={sharingJantriId === parchi.id}
                       />
                     ))}
                   </div>
