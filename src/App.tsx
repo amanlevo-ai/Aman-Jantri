@@ -29,6 +29,7 @@ interface JantriTheme {
   name: string;
   headerBg: string;
   badgeBg: string;
+  emptyBadgeBg: string;
   borderColor: string;
   accentText: string;
   activeCellBg: string;
@@ -42,6 +43,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Royal Blue',
     headerBg: 'bg-gradient-to-r from-blue-700 to-indigo-800',
     badgeBg: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white',
+    emptyBadgeBg: 'bg-blue-100 text-blue-800',
     borderColor: 'border-blue-300',
     accentText: 'text-blue-700',
     activeCellBg: 'bg-blue-50/80',
@@ -53,6 +55,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Emerald Green',
     headerBg: 'bg-gradient-to-r from-emerald-700 to-teal-800',
     badgeBg: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white',
+    emptyBadgeBg: 'bg-emerald-100 text-emerald-800',
     borderColor: 'border-emerald-300',
     accentText: 'text-emerald-700',
     activeCellBg: 'bg-emerald-50/80',
@@ -64,6 +67,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Ruby Crimson',
     headerBg: 'bg-gradient-to-r from-rose-700 to-red-800',
     badgeBg: 'bg-gradient-to-r from-rose-600 to-red-600 text-white',
+    emptyBadgeBg: 'bg-rose-100 text-rose-800',
     borderColor: 'border-rose-300',
     accentText: 'text-rose-700',
     activeCellBg: 'bg-rose-50/80',
@@ -75,6 +79,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Amber Gold',
     headerBg: 'bg-gradient-to-r from-amber-600 to-orange-700',
     badgeBg: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white',
+    emptyBadgeBg: 'bg-amber-100 text-amber-800',
     borderColor: 'border-amber-300',
     accentText: 'text-amber-700',
     activeCellBg: 'bg-amber-50/80',
@@ -86,6 +91,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Deep Purple',
     headerBg: 'bg-gradient-to-r from-purple-700 to-violet-800',
     badgeBg: 'bg-gradient-to-r from-purple-600 to-violet-600 text-white',
+    emptyBadgeBg: 'bg-purple-100 text-purple-800',
     borderColor: 'border-purple-300',
     accentText: 'text-purple-700',
     activeCellBg: 'bg-purple-50/80',
@@ -97,6 +103,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Cyan Teal',
     headerBg: 'bg-gradient-to-r from-cyan-700 to-teal-800',
     badgeBg: 'bg-gradient-to-r from-cyan-600 to-teal-600 text-white',
+    emptyBadgeBg: 'bg-cyan-100 text-cyan-800',
     borderColor: 'border-cyan-300',
     accentText: 'text-cyan-700',
     activeCellBg: 'bg-cyan-50/80',
@@ -108,6 +115,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Sunset Orange',
     headerBg: 'bg-gradient-to-r from-orange-600 to-amber-700',
     badgeBg: 'bg-gradient-to-r from-orange-500 to-amber-600 text-white',
+    emptyBadgeBg: 'bg-orange-100 text-orange-800',
     borderColor: 'border-orange-300',
     accentText: 'text-orange-700',
     activeCellBg: 'bg-orange-50/80',
@@ -119,6 +127,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Fuchsia Pink',
     headerBg: 'bg-gradient-to-r from-fuchsia-700 to-pink-800',
     badgeBg: 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white',
+    emptyBadgeBg: 'bg-fuchsia-100 text-fuchsia-800',
     borderColor: 'border-fuchsia-300',
     accentText: 'text-fuchsia-700',
     activeCellBg: 'bg-fuchsia-50/80',
@@ -130,6 +139,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Lime Olive',
     headerBg: 'bg-gradient-to-r from-lime-700 to-emerald-800',
     badgeBg: 'bg-gradient-to-r from-lime-600 to-emerald-600 text-white',
+    emptyBadgeBg: 'bg-lime-100 text-lime-800',
     borderColor: 'border-lime-300',
     accentText: 'text-lime-800',
     activeCellBg: 'bg-lime-50/80',
@@ -141,6 +151,7 @@ const JANTRI_THEMES: JantriTheme[] = [
     name: 'Midnight Slate',
     headerBg: 'bg-gradient-to-r from-slate-800 to-gray-900',
     badgeBg: 'bg-gradient-to-r from-slate-700 to-gray-800 text-white',
+    emptyBadgeBg: 'bg-slate-200 text-slate-800',
     borderColor: 'border-slate-400',
     accentText: 'text-slate-800',
     activeCellBg: 'bg-slate-100/90',
@@ -283,7 +294,7 @@ function SingleJantriBoxGrid({
                   <div className="flex items-center justify-start">
                     <span
                       className={`${
-                        isFilled ? theme.badgeBg : 'bg-gray-200 text-gray-700'
+                        isFilled ? theme.badgeBg : (theme.emptyBadgeBg || 'bg-gray-200 text-gray-700')
                       } text-[7.5px] sm:text-[9px] md:text-[10.5px] font-bold px-0.5 sm:px-1.5 py-0.5 rounded-xs sm:rounded-sm select-none leading-none shadow-2xs tracking-tight`}
                       title={`Box: ${cell.label}`}
                     >
@@ -706,14 +717,16 @@ function renderJantriToCanvas(
   if (!ctx) return canvas;
 
   const themes = [
-    { header: '#1d4ed8', badge: '#2563eb', activeBg: '#eff6ff', border: '#93c5fd', text: '#1e3a8a' },
-    { header: '#047857', badge: '#059669', activeBg: '#ecfdf5', border: '#6ee7b7', text: '#064e3b' },
-    { header: '#6d28d9', badge: '#7c3aed', activeBg: '#f5f3ff', border: '#c4b5fd', text: '#4c1d95' },
-    { header: '#b45309', badge: '#d97706', activeBg: '#fffbeb', border: '#fcd34d', text: '#78350f' },
-    { header: '#be123c', badge: '#e11d48', activeBg: '#fff1f2', border: '#fda4af', text: '#881337' },
-    { header: '#0f766e', badge: '#0d9488', activeBg: '#f0fdfa', border: '#5eead4', text: '#134e4a' },
-    { header: '#4338ca', badge: '#4f46e5', activeBg: '#eef2ff', border: '#a5b4fc', text: '#312e81' },
-    { header: '#334155', badge: '#475569', activeBg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' },
+    { header: '#1d4ed8', badge: '#2563eb', emptyBadge: '#dbeafe', emptyBadgeText: '#1e40af', activeBg: '#eff6ff', border: '#93c5fd', text: '#1e3a8a' },
+    { header: '#047857', badge: '#059669', emptyBadge: '#d1fae5', emptyBadgeText: '#065f46', activeBg: '#ecfdf5', border: '#6ee7b7', text: '#064e3b' },
+    { header: '#be123c', badge: '#e11d48', emptyBadge: '#ffe4e6', emptyBadgeText: '#9f1239', activeBg: '#fff1f2', border: '#fda4af', text: '#881337' },
+    { header: '#b45309', badge: '#d97706', emptyBadge: '#fef3c7', emptyBadgeText: '#92400e', activeBg: '#fffbeb', border: '#fcd34d', text: '#78350f' },
+    { header: '#6d28d9', badge: '#7c3aed', emptyBadge: '#ede9fe', emptyBadgeText: '#5b21b6', activeBg: '#f5f3ff', border: '#c4b5fd', text: '#4c1d95' },
+    { header: '#0f766e', badge: '#0d9488', emptyBadge: '#ccfbf1', emptyBadgeText: '#115e59', activeBg: '#f0fdfa', border: '#5eead4', text: '#134e4a' },
+    { header: '#c2410c', badge: '#ea580c', emptyBadge: '#ffedd5', emptyBadgeText: '#9a3412', activeBg: '#fff7ed', border: '#fdba74', text: '#7c2d12' },
+    { header: '#a21caf', badge: '#c026d3', emptyBadge: '#fae8ff', emptyBadgeText: '#86198f', activeBg: '#fdf4ff', border: '#f0abfc', text: '#701a75' },
+    { header: '#4d7c0f', badge: '#65a30d', emptyBadge: '#ecfccb', emptyBadgeText: '#3f6212', activeBg: '#f7fee7', border: '#bef264', text: '#365314' },
+    { header: '#334155', badge: '#475569', emptyBadge: '#e2e8f0', emptyBadgeText: '#1e293b', activeBg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' },
   ];
   const t = themes[themeIndex % themes.length];
 
@@ -831,7 +844,7 @@ function renderJantriToCanvas(
       // Box Number Badge (Top-left, large & prominent)
       const badgeW = 72;
       const badgeH = 46;
-      ctx.fillStyle = isFilled ? t.badge : '#94a3b8';
+      ctx.fillStyle = isFilled ? t.badge : t.emptyBadge;
       if ('roundRect' in ctx) {
         ctx.beginPath();
         (ctx as any).roundRect(cellX + 8, cellY + 8, badgeW, badgeH, 8);
@@ -840,7 +853,7 @@ function renderJantriToCanvas(
         ctx.fillRect(cellX + 8, cellY + 8, badgeW, badgeH);
       }
 
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = isFilled ? '#ffffff' : t.emptyBadgeText;
       ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(label, cellX + 8 + badgeW / 2, cellY + 8 + 33);

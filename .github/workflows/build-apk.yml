@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.8.0
-          name: Aman Jantri v1.8.0 (Ultra-HD 2200x2600 Quality, Big Fonts & English Messages)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring Ultra-HD crystal clear 2200x2600 Jantri JPG output, enlarged bold fonts filling boxes with zero empty space, and clean English toast notifications."
+          tag_name: v1.9.0
+          name: Aman Jantri v1.9.0 (Theme-Matching Light Color for Blank Boxes)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring theme-matching light colored badges for unfilled boxes (no dull grey) in both live UI and Ultra-HD JPG export."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
