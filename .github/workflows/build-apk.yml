@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.1.0
-          name: Aman Jantri v1.1.0 (with JPG Image Sharing)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring direct 100-boxes JPG Image Sharing to WhatsApp and other apps."
+          tag_name: v1.2.0
+          name: Aman Jantri v1.2.0 (Fixed Native Image Sharing)
+          body: "Direct Download APK for Aman Jantri (Android) - Fixed direct 100-boxes JPG Image Sharing to WhatsApp and other apps."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

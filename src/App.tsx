@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
+import html2canvas from 'html2canvas';
 import { toJpeg } from 'html-to-image';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -207,7 +208,7 @@ function SingleJantriBoxGrid({
               ) : (
                 <>
                   <Share2 className="w-3.5 h-3.5 text-white" />
-                  <span>Share JPG</span>
+                  <span>Share</span>
                 </>
               )}
             </button>
@@ -599,73 +600,98 @@ export default function App() {
 
     try {
       setSharingJantriId(parchi.id);
-      setStatusMessage(`Generating JPG for Jantri #${parchi.parchiNumber}...`);
+      setStatusMessage(`Sharing Jantri #${parchi.parchiNumber}...`);
 
-      const dataUrl = await toJpeg(cardEl, {
-        quality: 0.95,
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        filter: (domNode) => {
-          const el = domNode as HTMLElement;
-          return el?.dataset?.captureHide !== 'true';
-        },
-      });
+      let dataUrl = '';
+      try {
+        const canvas = await html2canvas(cardEl, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          ignoreElements: (el) => el.getAttribute('data-capture-hide') === 'true',
+        });
+        dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      } catch (canvasErr) {
+        console.warn('html2canvas failed, falling back to toJpeg', canvasErr);
+        dataUrl = await toJpeg(cardEl, {
+          quality: 0.95,
+          backgroundColor: '#ffffff',
+          pixelRatio: 2,
+          filter: (domNode) => (domNode as HTMLElement)?.dataset?.captureHide !== 'true',
+        });
+      }
 
-      const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+      if (!dataUrl) {
+        throw new Error('Could not create image');
+      }
 
-      // 1. Check if running in Capacitor Native (Android App)
+      const fileName = `Jantri_${parchi.parchiNumber}.jpg`;
+
+      // 1. Android Capacitor Native App
       if (Capacitor.isNativePlatform()) {
         try {
-          const base64Data = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '');
+          const base64Data = dataUrl.split(',')[1] || dataUrl;
           const savedFile = await Filesystem.writeFile({
             path: fileName,
             data: base64Data,
             directory: Directory.Cache,
           });
 
+          // Must pass `files: [savedFile.uri]`.
+          // Do NOT pass `text` or `url`, so Android treats this exclusively as an image file share (EXTRA_STREAM with image/jpeg).
           await Share.share({
             title: `Jantri #${parchi.parchiNumber}`,
-            text: `Aman Jantri #${parchi.parchiNumber} - Total: ₹${parchi.totalAmount}`,
-            url: savedFile.uri,
+            files: [savedFile.uri],
             dialogTitle: `Share Jantri #${parchi.parchiNumber}`,
           });
 
           setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
           setTimeout(() => setStatusMessage(null), 3000);
           return;
-        } catch (nativeErr) {
-          console.warn('Native share failed, attempting fallback', nativeErr);
+        } catch (nativeErr: any) {
+          console.warn('Native share failed, falling back to Web Share', nativeErr);
+          if (nativeErr?.message && nativeErr.message.includes('canceled')) {
+            return;
+          }
         }
       }
 
-      // 2. Web Share API with File (Supported in modern mobile browsers)
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], fileName, { type: 'image/jpeg' });
+      // 2. Web Share API with File (Supported in mobile browsers)
+      try {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], fileName, { type: 'image/jpeg' });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Jantri #${parchi.parchiNumber}`,
-          text: `Aman Jantri #${parchi.parchiNumber} - Total: ₹${parchi.totalAmount}`,
-        });
-        setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
-        setTimeout(() => setStatusMessage(null), 3000);
-      } else {
-        // 3. Fallback: Direct Download JPG
-        const downloadLink = document.createElement('a');
-        downloadLink.href = dataUrl;
-        downloadLink.download = fileName;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-
-        setStatusMessage(`Jantri #${parchi.parchiNumber} JPG saved!`);
-        setTimeout(() => setStatusMessage(null), 3000);
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Jantri #${parchi.parchiNumber}`,
+          });
+          setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+          setTimeout(() => setStatusMessage(null), 3000);
+          return;
+        }
+      } catch (webShareErr: any) {
+        console.warn('Web Share failed', webShareErr);
+        if (webShareErr?.name === 'AbortError') {
+          return;
+        }
       }
+
+      // 3. Fallback: Direct Download JPG
+      const downloadLink = document.createElement('a');
+      downloadLink.href = dataUrl;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      setStatusMessage(`Jantri #${parchi.parchiNumber} JPG saved!`);
+      setTimeout(() => setStatusMessage(null), 3000);
     } catch (err) {
       console.error('Failed to share Jantri JPG:', err);
-      setStatusMessage('Error creating JPG image.');
+      setStatusMessage('Error sharing Jantri image.');
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {
       setSharingJantriId(null);
