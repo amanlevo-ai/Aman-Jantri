@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.4.0
-          name: Aman Jantri v1.4.0 (Share + Download Options)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring instant 100-boxes JPG Image Share & Download options."
+          tag_name: v1.5.0
+          name: Aman Jantri v1.5.0 (Row Total 11th Column + Share & Download)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring 11th column row totals in both live UI and instant JPG share/download."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

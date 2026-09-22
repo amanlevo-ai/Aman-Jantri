@@ -241,60 +241,93 @@ function SingleJantriBoxGrid({
         </div>
       </div>
 
-      {/* 100 Boxes (10x10) Grid */}
-      <div className="w-full grid grid-cols-10 border-collapse">
+      {/* 100 Boxes (10x10) + 10 Row Total Cells Grid (11 Columns) */}
+      <div className="w-full grid grid-cols-11 border-collapse">
         {/* Column Headers 1 to 10 */}
         {columns.map((colNum) => (
           <div
             key={`col-header-${themeIndex}-${colNum}`}
-            className={`${theme.headerBg} py-1 sm:py-1.5 font-bold text-white text-[10px] sm:text-xs md:text-sm text-center border-b border-r border-white/20 last:border-r-0 select-none shadow-2xs`}
+            className={`${theme.headerBg} py-1 sm:py-1.5 font-bold text-white text-[9.5px] sm:text-xs md:text-sm text-center border-b border-r border-white/20 select-none shadow-2xs`}
           >
             {colNum}
           </div>
         ))}
 
-        {/* 100 Cells */}
-        {gridCells.flatMap((rowCells, rowIndex) =>
-          rowCells.map((cell) => {
+        {/* 11th Column Header: Total */}
+        <div
+          key={`col-header-${themeIndex}-total`}
+          className="bg-amber-600/95 py-1 sm:py-1.5 font-black text-white text-[9.5px] sm:text-xs md:text-sm text-center border-b border-amber-700/40 select-none shadow-2xs tracking-wide"
+        >
+          Total
+        </div>
+
+        {/* 100 Cells + 10 Row Total Cells (11 columns per row) */}
+        {gridCells.flatMap((rowCells, rowIndex) => {
+          const rowTotal = rowCells.reduce((sum, cell) => {
             const cellFormatted = formatWithLeadingZero(cell.label);
-            const cellAmount = parchiMap.get(cellFormatted) ?? 0;
-            const isFilled = cellAmount > 0;
+            return sum + (parchiMap.get(cellFormatted) ?? 0);
+          }, 0);
 
-            return (
-              <div
-                key={`jantri-${parchi.id}-cell-${cell.label}`}
-                className={`border-b border-r ${theme.borderColor}/50 last:border-r-0 ${
-                  rowIndex === 9 ? 'border-b-0' : ''
-                } ${isFilled ? theme.activeCellBg : 'bg-white hover:bg-gray-50/60'} transition-colors p-[1.5px] sm:p-1 flex flex-col justify-between min-h-[38px] sm:min-h-[44px]`}
-              >
-                {/* Cell Number Badge */}
-                <div className="flex items-center justify-start">
-                  <span
-                    className={`${
-                      isFilled ? theme.badgeBg : 'bg-gray-200 text-gray-700'
-                    } text-[8.5px] sm:text-[9.5px] md:text-[11px] font-bold px-1 sm:px-1.5 py-0.5 rounded-xs sm:rounded-sm select-none leading-none shadow-2xs tracking-tight`}
-                    title={`Box: ${cell.label}`}
-                  >
-                    {cell.label}
-                  </span>
-                </div>
+          return [
+            ...rowCells.map((cell) => {
+              const cellFormatted = formatWithLeadingZero(cell.label);
+              const cellAmount = parchiMap.get(cellFormatted) ?? 0;
+              const isFilled = cellAmount > 0;
 
-                {/* Auto-filled Amount */}
-                <div className="mt-0.5 w-full text-center">
-                  {isFilled ? (
-                    <span className={`block font-extrabold ${theme.amountText} text-[11px] sm:text-xs md:text-sm tracking-tight truncate`}>
-                      {cellAmount}
+              return (
+                <div
+                  key={`jantri-${parchi.id}-cell-${cell.label}`}
+                  className={`border-b border-r ${theme.borderColor}/50 ${
+                    rowIndex === 9 ? 'border-b-0' : ''
+                  } ${isFilled ? theme.activeCellBg : 'bg-white hover:bg-gray-50/60'} transition-colors p-[1px] sm:p-1 flex flex-col justify-between min-h-[38px] sm:min-h-[44px]`}
+                >
+                  {/* Cell Number Badge */}
+                  <div className="flex items-center justify-start">
+                    <span
+                      className={`${
+                        isFilled ? theme.badgeBg : 'bg-gray-200 text-gray-700'
+                      } text-[7.5px] sm:text-[9px] md:text-[10.5px] font-bold px-0.5 sm:px-1.5 py-0.5 rounded-xs sm:rounded-sm select-none leading-none shadow-2xs tracking-tight`}
+                      title={`Box: ${cell.label}`}
+                    >
+                      {cell.label}
                     </span>
-                  ) : (
-                    <span className="block text-gray-300 font-light text-[10px] sm:text-xs select-none">
-                      -
-                    </span>
-                  )}
+                  </div>
+
+                  {/* Auto-filled Amount */}
+                  <div className="mt-0.5 w-full text-center">
+                    {isFilled ? (
+                      <span className={`block font-extrabold ${theme.amountText} text-[10px] sm:text-xs md:text-sm tracking-tight truncate`}>
+                        {cellAmount}
+                      </span>
+                    ) : (
+                      <span className="block text-gray-300 font-light text-[9.5px] sm:text-xs select-none">
+                        -
+                      </span>
+                    )}
+                  </div>
                 </div>
+              );
+            }),
+            /* 11th Column: Row Total Cell */
+            <div
+              key={`jantri-${parchi.id}-row-total-${rowIndex}`}
+              className={`border-b border-amber-200/90 bg-amber-50/85 p-[1px] sm:p-1 flex flex-col justify-between items-center min-h-[38px] sm:min-h-[44px] ${
+                rowIndex === 9 ? 'border-b-0' : ''
+              }`}
+            >
+              <div className="flex items-center justify-center w-full">
+                <span className="text-[7px] sm:text-[8px] font-black text-amber-800 bg-amber-200/90 px-1 py-0.5 rounded-xs leading-none">
+                  R{rowIndex + 1}
+                </span>
               </div>
-            );
-          })
-        )}
+              <div className="mt-0.5 w-full text-center">
+                <span className="block font-black text-amber-950 font-mono text-[10px] sm:text-xs md:text-sm tracking-tight truncate">
+                  {rowTotal > 0 ? rowTotal : '-'}
+                </span>
+              </div>
+            </div>,
+          ];
+        })}
       </div>
 
       {/* Footer */}
@@ -678,12 +711,13 @@ function renderJantriToCanvas(
   ctx.textAlign = 'right';
   ctx.fillText(`Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, 65);
 
-  // Grid Dimensions (10x10)
+  // Grid Dimensions (10 rows x 11 cols)
   const gridStartX = 8;
   const gridStartY = 98;
   const colHeaderHeight = 44;
   const footerHeight = 65;
-  const cellWidth = (width - 16) / 10;
+  const numCols = 11;
+  const cellWidth = (width - 16) / numCols;
   const cellHeight = (height - 16 - 90 - footerHeight - colHeaderHeight) / 10;
 
   // Column Headers 1 to 10
@@ -694,12 +728,12 @@ function renderJantriToCanvas(
   ctx.lineWidth = 1;
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 22px sans-serif';
+  ctx.font = 'bold 20px sans-serif';
   ctx.textAlign = 'center';
 
   cols.forEach((colNum, c) => {
     const x = gridStartX + c * cellWidth;
-    ctx.fillText(String(colNum), x + cellWidth / 2, gridStartY + 30);
+    ctx.fillText(String(colNum), x + cellWidth / 2, gridStartY + 29);
     if (c > 0) {
       ctx.beginPath();
       ctx.moveTo(x, gridStartY);
@@ -708,10 +742,27 @@ function renderJantriToCanvas(
     }
   });
 
-  // Grid Cells (10 rows x 10 cols)
+  // 11th Column Header: Total
+  const totalHeaderX = gridStartX + 10 * cellWidth;
+  const totalHeaderW = (width - 16) - 10 * cellWidth;
+  ctx.fillStyle = '#d97706'; // Amber-600
+  ctx.fillRect(totalHeaderX, gridStartY, totalHeaderW, colHeaderHeight);
+  ctx.beginPath();
+  ctx.moveTo(totalHeaderX, gridStartY);
+  ctx.lineTo(totalHeaderX, gridStartY + colHeaderHeight);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Total', totalHeaderX + totalHeaderW / 2, gridStartY + 29);
+
+  // Grid Cells (10 rows x 11 cols: 10 house cells + 1 row total cell)
   const tableStartY = gridStartY + colHeaderHeight;
 
   for (let r = 0; r < 10; r++) {
+    let rowTotal = 0;
     for (let c = 0; c < 10; c++) {
       let label = '';
       if (gridMode === '1-100') {
@@ -730,6 +781,9 @@ function renderJantriToCanvas(
       const cellFormatted = formatWithLeadingZero(label);
       const cellAmount = parchiMap.get(cellFormatted) ?? 0;
       const isFilled = cellAmount > 0;
+      if (isFilled) {
+        rowTotal += cellAmount;
+      }
 
       // Cell background
       ctx.fillStyle = isFilled ? t.activeBg : '#ffffff';
@@ -741,34 +795,76 @@ function renderJantriToCanvas(
       ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
 
       // Box Number Badge (Top-left)
-      const badgeW = 34;
-      const badgeH = 22;
+      const badgeW = 32;
+      const badgeH = 20;
       ctx.fillStyle = isFilled ? t.badge : '#94a3b8';
       if ('roundRect' in ctx) {
         ctx.beginPath();
-        (ctx as any).roundRect(cellX + 4, cellY + 4, badgeW, badgeH, 4);
+        (ctx as any).roundRect(cellX + 3, cellY + 3, badgeW, badgeH, 4);
         ctx.fill();
       } else {
-        ctx.fillRect(cellX + 4, cellY + 4, badgeW, badgeH);
+        ctx.fillRect(cellX + 3, cellY + 3, badgeW, badgeH);
       }
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 13px sans-serif';
+      ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(label, cellX + 4 + badgeW / 2, cellY + 19);
+      ctx.fillText(label, cellX + 3 + badgeW / 2, cellY + 17);
 
       // Amount (Center/Bottom)
       if (isFilled) {
         ctx.fillStyle = t.text;
-        ctx.font = 'bold 24px sans-serif';
+        ctx.font = 'bold 22px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(String(cellAmount), cellX + cellWidth / 2, cellY + cellHeight - 22);
       } else {
         ctx.fillStyle = '#cbd5e1';
-        ctx.font = '300 20px sans-serif';
+        ctx.font = '300 18px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('-', cellX + cellWidth / 2, cellY + cellHeight - 22);
       }
+    }
+
+    // 11th Column: Row Total Cell
+    const totalCellX = gridStartX + 10 * cellWidth;
+    const totalCellW = (width - 16) - 10 * cellWidth;
+    const totalCellY = tableStartY + r * cellHeight;
+
+    // Row total background & border
+    ctx.fillStyle = '#fffbeb';
+    ctx.fillRect(totalCellX, totalCellY, totalCellW, cellHeight);
+
+    ctx.strokeStyle = '#fde68a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(totalCellX, totalCellY, totalCellW, cellHeight);
+
+    // Row indicator badge (e.g. R1, R2, ..., R10)
+    const rBadgeW = 28;
+    const rBadgeH = 19;
+    ctx.fillStyle = '#fde68a';
+    if ('roundRect' in ctx) {
+      ctx.beginPath();
+      (ctx as any).roundRect(totalCellX + (totalCellW - rBadgeW) / 2, totalCellY + 4, rBadgeW, rBadgeH, 3);
+      ctx.fill();
+    } else {
+      ctx.fillRect(totalCellX + (totalCellW - rBadgeW) / 2, totalCellY + 4, rBadgeW, rBadgeH);
+    }
+    ctx.fillStyle = '#78350f';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`R${r + 1}`, totalCellX + totalCellW / 2, totalCellY + 17);
+
+    // Row total amount text
+    if (rowTotal > 0) {
+      ctx.fillStyle = '#451a03';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(rowTotal), totalCellX + totalCellW / 2, totalCellY + cellHeight - 22);
+    } else {
+      ctx.fillStyle = '#d1d5db';
+      ctx.font = '300 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('-', totalCellX + totalCellW / 2, totalCellY + cellHeight - 22);
     }
   }
 
