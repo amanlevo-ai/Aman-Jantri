@@ -11,7 +11,6 @@ interface NativeJantriPluginType {
 const NativeJantri = registerPlugin<NativeJantriPluginType>('NativeJantri');
 import {
   RotateCcw,
-  SlidersHorizontal,
   Copy,
   Check,
   Trash2,
@@ -346,10 +345,9 @@ function SingleJantriBoxGrid({
 export default function App() {
   // Amount input for filling Jantri (e.g. 500)
   const [amount, setAmount] = useState<string>('500');
-  const [gridMode, setGridMode] = useState<GridMode>('1-100');
+  const [gridMode] = useState<GridMode>('1-100');
   const [parchiNumber, setParchiNumber] = useState<string>('10');
   const [smallAmountsInResult, setSmallAmountsInResult] = useState<boolean>(false);
-  const [showSettings, setShowSettings] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [generatedParchis, setGeneratedParchis] = useState<ParchiItem[]>([]);
   const [copiedParchiId, setCopiedParchiId] = useState<number | null>(null);
@@ -1121,56 +1119,10 @@ function renderJantriToCanvas(
           </h1>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            id="settings-toggle-button"
-            onClick={() => setShowSettings(!showSettings)}
-            className="flex items-center gap-1 bg-[#2e4465] hover:bg-[#3b557c] px-2.5 py-1.5 rounded text-white transition-colors cursor-pointer text-xs"
-            title="Grid Settings"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Settings</span>
-          </button>
-        </div>
       </header>
 
       {/* Main Content Area - Full width responsive, strictly no horizontal scroll */}
       <main className="flex-1 w-full max-w-4xl mx-auto px-2 sm:px-4 py-2 sm:py-3 overflow-x-hidden">
-        {/* Settings Panel (collapsible) */}
-        {showSettings && (
-          <div id="settings-panel" className="mb-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm text-xs sm:text-sm">
-            <div className="font-semibold text-gray-700 mb-2">Grid Options:</div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Numbering Format:</label>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                <button
-                  onClick={() => setGridMode('1-100')}
-                  className={`px-2.5 py-1 rounded text-xs font-medium cursor-pointer border ${
-                    gridMode === '1-100' ? 'bg-[#21324a] text-white border-[#21324a]' : 'bg-gray-100 text-gray-700 border-gray-300'
-                  }`}
-                >
-                  1 to 100
-                </button>
-                <button
-                  onClick={() => setGridMode('00-99')}
-                  className={`px-2.5 py-1 rounded text-xs font-medium cursor-pointer border ${
-                    gridMode === '00-99' ? 'bg-[#21324a] text-white border-[#21324a]' : 'bg-gray-100 text-gray-700 border-gray-300'
-                  }`}
-                >
-                  01 to 00
-                </button>
-                <button
-                  onClick={() => setGridMode('0-99')}
-                  className={`px-2.5 py-1 rounded text-xs font-medium cursor-pointer border ${
-                    gridMode === '0-99' ? 'bg-[#21324a] text-white border-[#21324a]' : 'bg-gray-100 text-gray-700 border-gray-300'
-                  }`}
-                >
-                  0 to 99
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Input Section - 'Enter amount to fill jantri:' */}
         <section id="amount-input-section" className="mb-3 sm:mb-4">
@@ -1233,15 +1185,6 @@ function renderJantriToCanvas(
           </div>
         </section>
 
-        {/* Live Status Indicator */}
-        <div className="flex items-center justify-between text-[11px] sm:text-xs text-gray-600 mb-1.5 px-0.5">
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="inline-block w-2 h-2 rounded-full bg-blue-600 animate-pulse shrink-0"></span>
-            <span className="truncate text-blue-900 font-medium">Live Amount: <strong className="text-blue-950 font-bold">₹{amount || '0'}</strong> / box</span>
-          </div>
-          <span className="text-blue-600 font-semibold font-mono text-[10px] sm:text-xs bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60 shrink-0">100 Boxes (10×10)</span>
-        </div>
-
         {/* 100 Text Boxes Responsive Grid - Modern Blue Design */}
         <div
           id="jantri-table-container"
@@ -1293,14 +1236,11 @@ function renderJantriToCanvas(
           </div>
         </div>
 
-        {/* Grand Total - Exactly 100 boxes */}
+        {/* Grand Total */}
         <section id="grand-total-section" className="mt-3 sm:mt-4 mb-3 sm:mb-4">
           <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50/50 p-3 sm:p-3.5 rounded-xl border border-blue-200 shadow-xs flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm sm:text-base font-bold text-gray-800">
               Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="text-[11px] sm:text-xs text-blue-600/80 font-medium bg-white px-2 py-0.5 rounded-md border border-blue-100 shadow-2xs">
-              100 boxes × {amount || '0'} = ₹{grandTotal.toLocaleString('en-IN')}
             </div>
           </div>
         </section>
