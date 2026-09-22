@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.3.0
-          name: Aman Jantri v1.3.0 (Instant Canvas 2D Sharing)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring instant 5ms pure Canvas 2D JPG generation and direct native WhatsApp / Telegram sharing."
+          tag_name: v1.4.0
+          name: Aman Jantri v1.4.0 (Share + Download Options)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring instant 100-boxes JPG Image Share & Download options."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

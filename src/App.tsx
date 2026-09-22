@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Share2,
+  Download,
   Loader2,
 } from 'lucide-react';
 
@@ -151,6 +152,8 @@ function SingleJantriBoxGrid({
   formatWithLeadingZero,
   onShare,
   isSharing = false,
+  onDownload,
+  isDownloading = false,
 }: {
   parchi: ParchiItem;
   themeIndex: number;
@@ -159,6 +162,8 @@ function SingleJantriBoxGrid({
   formatWithLeadingZero: (val: number | string) => string;
   onShare?: () => void;
   isSharing?: boolean;
+  onDownload?: () => void;
+  isDownloading?: boolean;
 }) {
   const theme = JANTRI_THEMES[themeIndex % JANTRI_THEMES.length];
 
@@ -185,7 +190,7 @@ function SingleJantriBoxGrid({
             {parchi.houses.length} Houses Filled
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs sm:text-sm font-black bg-black/25 px-2.5 py-1 rounded-md text-white">
             Total: ₹{parchi.totalAmount.toLocaleString('en-IN')}
           </span>
@@ -195,18 +200,40 @@ function SingleJantriBoxGrid({
               data-capture-hide="true"
               onClick={onShare}
               disabled={isSharing}
-              className="bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs px-3 py-1 rounded-md flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-xs disabled:opacity-50"
-              title="Share this Jantri as JPG Image"
+              className="bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs px-2.5 sm:px-3 py-1 rounded-md flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-xs disabled:opacity-50"
+              title="Share this Jantri"
             >
               {isSharing ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                  <span>Preparing...</span>
+                  <span>Sharing...</span>
                 </>
               ) : (
                 <>
                   <Share2 className="w-3.5 h-3.5 text-white" />
                   <span>Share</span>
+                </>
+              )}
+            </button>
+          )}
+          {onDownload && (
+            <button
+              type="button"
+              data-capture-hide="true"
+              onClick={onDownload}
+              disabled={isDownloading}
+              className="bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs px-2.5 sm:px-3 py-1 rounded-md flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-xs disabled:opacity-50"
+              title="Download Jantri Image"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-white" />
+                  <span>Download</span>
                 </>
               )}
             </button>
@@ -297,6 +324,7 @@ export default function App() {
   const [activeJantriIndex, setActiveJantriIndex] = useState<number>(0);
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
   const [sharingJantriId, setSharingJantriId] = useState<number | null>(null);
+  const [downloadingJantriId, setDownloadingJantriId] = useState<number | null>(null);
 
   // 10 column headers: 1 to 10 (or 0 to 9 in 0-99 mode) without leading zeros
   const columns = useMemo(() => {
@@ -847,6 +875,53 @@ function renderJantriToCanvas(
     }
   };
 
+  // Direct Download Jantri as JPG Image
+  const handleDownloadJantri = async (parchi: ParchiItem) => {
+    try {
+      setDownloadingJantriId(parchi.id);
+      setStatusMessage(`Saving Jantri #${parchi.parchiNumber}...`);
+
+      const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
+      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+
+      // 1. Android Capacitor Native App
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const base64Data = dataUrl.split(',')[1];
+          await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Documents,
+          });
+          setStatusMessage(`Jantri #${parchi.parchiNumber} saved to Documents!`);
+          setTimeout(() => setStatusMessage(null), 3000);
+          return;
+        } catch (nativeErr) {
+          console.warn('Filesystem save error, falling back to browser download', nativeErr);
+        }
+      }
+
+      // 2. Direct browser download
+      const downloadLink = document.createElement('a');
+      downloadLink.href = dataUrl;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      setStatusMessage(`Jantri #${parchi.parchiNumber} downloaded!`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to download Jantri JPG:', err);
+      setStatusMessage('Error downloading Jantri image.');
+      setTimeout(() => setStatusMessage(null), 3500);
+    } finally {
+      setDownloadingJantriId(null);
+    }
+  };
+
   return (
     <div id="jantri-app-container" className="min-h-screen bg-[#f1f5f9] text-gray-800 flex flex-col font-sans overflow-x-hidden">
       {/* Top App Header */}
@@ -1351,6 +1426,8 @@ function renderJantriToCanvas(
                         formatWithLeadingZero={formatWithLeadingZero}
                         onShare={() => handleShareJantriAsJpg(generatedParchis[activeJantriIndex])}
                         isSharing={sharingJantriId === generatedParchis[activeJantriIndex].id}
+                        onDownload={() => handleDownloadJantri(generatedParchis[activeJantriIndex])}
+                        isDownloading={downloadingJantriId === generatedParchis[activeJantriIndex].id}
                       />
                     )}
                   </div>
@@ -1367,6 +1444,8 @@ function renderJantriToCanvas(
                         formatWithLeadingZero={formatWithLeadingZero}
                         onShare={() => handleShareJantriAsJpg(parchi)}
                         isSharing={sharingJantriId === parchi.id}
+                        onDownload={() => handleDownloadJantri(parchi)}
+                        isDownloading={downloadingJantriId === parchi.id}
                       />
                     ))}
                   </div>
