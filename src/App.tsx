@@ -1,8 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
 import { Share } from '@capacitor/share';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+interface NativeJantriPluginType {
+  shareImage(options: { base64: string; fileName: string }): Promise<{ success: boolean }>;
+  downloadImage(options: { base64: string; fileName: string }): Promise<{ success: boolean }>;
+}
+
+const NativeJantri = registerPlugin<NativeJantriPluginType>('NativeJantri');
 import {
   RotateCcw,
   SlidersHorizontal,
@@ -898,31 +904,45 @@ function renderJantriToCanvas(
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
       const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-
       const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+      const base64Data = dataUrl.split(',')[1];
 
       // 1. Android Capacitor Native App
       if (Capacitor.isNativePlatform()) {
         try {
-          const base64Data = dataUrl.split(',')[1];
-          const savedFile = await Filesystem.writeFile({
-            path: fileName,
-            data: base64Data,
-            directory: Directory.Cache,
+          await NativeJantri.shareImage({
+            base64: base64Data,
+            fileName: fileName,
           });
-
-          await Share.share({
-            title: `Jantri #${parchi.parchiNumber}`,
-            files: [savedFile.uri],
-            dialogTitle: `Share Jantri #${parchi.parchiNumber}`,
-          });
-
           setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
           setTimeout(() => setStatusMessage(null), 3000);
           return;
         } catch (nativeErr: any) {
-          console.warn('Native share error:', nativeErr);
-          if (nativeErr?.message && (nativeErr.message.includes('canceled') || nativeErr.message.includes('cancelled'))) {
+          console.warn('NativeJantri share error, trying fallback:', nativeErr);
+          // Try standard Capacitor share if native plugin had issue
+          try {
+            const savedFile = await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Cache,
+            });
+            const uriRes = await Filesystem.getUri({
+              directory: Directory.Cache,
+              path: fileName,
+            });
+            await Share.share({
+              title: `Jantri #${parchi.parchiNumber}`,
+              files: [uriRes.uri || savedFile.uri],
+              dialogTitle: `Share Jantri #${parchi.parchiNumber}`,
+            });
+            setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+            setTimeout(() => setStatusMessage(null), 3000);
+            return;
+          } catch (fallbackErr: any) {
+            console.error('All native share failed:', fallbackErr);
+            alert(`Share failed: ${nativeErr?.message || fallbackErr?.message || 'Error'}`);
+            setStatusMessage('Share failed.');
+            setTimeout(() => setStatusMessage(null), 3500);
             return;
           }
         }
@@ -962,8 +982,9 @@ function renderJantriToCanvas(
 
       setStatusMessage(`Jantri #${parchi.parchiNumber} JPG saved!`);
       setTimeout(() => setStatusMessage(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to share Jantri JPG:', err);
+      alert('Error sharing Jantri: ' + (err?.message || err));
       setStatusMessage('Error sharing Jantri image.');
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {
@@ -981,25 +1002,35 @@ function renderJantriToCanvas(
       const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+      const base64Data = dataUrl.split(',')[1];
 
       // 1. Android Capacitor Native App
       if (Capacitor.isNativePlatform()) {
         try {
-          const base64Data = dataUrl.split(',')[1];
-          await Filesystem.writeFile({
-            path: fileName,
-            data: base64Data,
-            directory: Directory.Documents,
+          await NativeJantri.downloadImage({
+            base64: base64Data,
+            fileName: fileName,
           });
-          setStatusMessage(`Jantri #${parchi.parchiNumber} saved to Documents!`);
-          setTimeout(() => setStatusMessage(null), 3000);
+          setStatusMessage(`Jantri #${parchi.parchiNumber} Gallery mein save ho gayi!`);
+          setTimeout(() => setStatusMessage(null), 3500);
           return;
-        } catch (nativeErr) {
-          console.warn('Filesystem save error, falling back to browser download', nativeErr);
+        } catch (nativeErr: any) {
+          console.warn('NativeJantri download error:', nativeErr);
+          try {
+            // Fallback: use share so user can save or send
+            await NativeJantri.shareImage({
+              base64: base64Data,
+              fileName: fileName,
+            });
+            return;
+          } catch (e: any) {
+            alert('Save failed: ' + (nativeErr?.message || e?.message || 'Error'));
+            return;
+          }
         }
       }
 
-      // 2. Direct browser download
+      // 2. Direct browser download (Web / Desktop)
       const downloadLink = document.createElement('a');
       downloadLink.href = dataUrl;
       downloadLink.download = fileName;
@@ -1009,8 +1040,9 @@ function renderJantriToCanvas(
 
       setStatusMessage(`Jantri #${parchi.parchiNumber} downloaded!`);
       setTimeout(() => setStatusMessage(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to download Jantri JPG:', err);
+      alert('Error downloading Jantri: ' + (err?.message || err));
       setStatusMessage('Error downloading Jantri image.');
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {

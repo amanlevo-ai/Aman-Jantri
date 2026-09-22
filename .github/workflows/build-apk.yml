@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.5.0
-          name: Aman Jantri v1.5.0 (Row Total 11th Column + Share & Download)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring 11th column row totals in both live UI and instant JPG share/download."
+          tag_name: v1.6.0
+          name: Aman Jantri v1.6.0 (Native Android Share & Gallery Save Fix)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring custom native Android plugin for 100% reliable WhatsApp/Telegram JPG sharing and direct MediaStore Gallery saving."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
