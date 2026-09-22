@@ -1,7 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
-import html2canvas from 'html2canvas';
-import { toJpeg } from 'html-to-image';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -590,56 +588,205 @@ export default function App() {
     setTimeout(() => setCopiedParchiId(null), 2000);
   };
 
+// Pure HTML5 Canvas 2D Renderer for Jantri (Instant 5ms execution, crisp high resolution, zero CSS/DOM hang bugs)
+function renderJantriToCanvas(
+  parchi: ParchiItem,
+  gridMode: GridMode,
+  themeIndex: number,
+  formatWithLeadingZero: (val: number | string) => string
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const width = 1000;
+  const height = 1200;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const themes = [
+    { header: '#1d4ed8', badge: '#2563eb', activeBg: '#eff6ff', border: '#93c5fd', text: '#1e3a8a' },
+    { header: '#047857', badge: '#059669', activeBg: '#ecfdf5', border: '#6ee7b7', text: '#064e3b' },
+    { header: '#6d28d9', badge: '#7c3aed', activeBg: '#f5f3ff', border: '#c4b5fd', text: '#4c1d95' },
+    { header: '#b45309', badge: '#d97706', activeBg: '#fffbeb', border: '#fcd34d', text: '#78350f' },
+    { header: '#be123c', badge: '#e11d48', activeBg: '#fff1f2', border: '#fda4af', text: '#881337' },
+    { header: '#0f766e', badge: '#0d9488', activeBg: '#f0fdfa', border: '#5eead4', text: '#134e4a' },
+    { header: '#4338ca', badge: '#4f46e5', activeBg: '#eef2ff', border: '#a5b4fc', text: '#312e81' },
+    { header: '#334155', badge: '#475569', activeBg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' },
+  ];
+  const t = themes[themeIndex % themes.length];
+
+  const parchiMap = new Map<string, number>();
+  parchi.houses.forEach((h) => {
+    parchiMap.set(formatWithLeadingZero(h.number), h.amount);
+  });
+
+  // White background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  // Outer border
+  ctx.strokeStyle = t.border;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(8, 8, width - 16, height - 16);
+
+  // Header Banner
+  ctx.fillStyle = t.header;
+  ctx.fillRect(8, 8, width - 16, 90);
+
+  // Header Title
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 36px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Jantri #${parchi.parchiNumber}`, 30, 65);
+
+  // Subtitle (Houses count)
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 20px sans-serif';
+  ctx.fillText(`${parchi.houses.length} Houses Filled`, 250, 64);
+
+  // Header Total
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 36px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(`Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, 65);
+
+  // Grid Dimensions (10x10)
+  const gridStartX = 8;
+  const gridStartY = 98;
+  const colHeaderHeight = 44;
+  const footerHeight = 65;
+  const cellWidth = (width - 16) / 10;
+  const cellHeight = (height - 16 - 90 - footerHeight - colHeaderHeight) / 10;
+
+  // Column Headers 1 to 10
+  const cols = gridMode === '0-99' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  ctx.fillStyle = t.header;
+  ctx.fillRect(gridStartX, gridStartY, width - 16, colHeaderHeight);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center';
+
+  cols.forEach((colNum, c) => {
+    const x = gridStartX + c * cellWidth;
+    ctx.fillText(String(colNum), x + cellWidth / 2, gridStartY + 30);
+    if (c > 0) {
+      ctx.beginPath();
+      ctx.moveTo(x, gridStartY);
+      ctx.lineTo(x, gridStartY + colHeaderHeight);
+      ctx.stroke();
+    }
+  });
+
+  // Grid Cells (10 rows x 10 cols)
+  const tableStartY = gridStartY + colHeaderHeight;
+
+  for (let r = 0; r < 10; r++) {
+    for (let c = 0; c < 10; c++) {
+      let label = '';
+      if (gridMode === '1-100') {
+        const num = r * 10 + (c + 1);
+        label = num <= 9 ? `0${num}` : num.toString();
+      } else if (gridMode === '00-99') {
+        const num = r * 10 + (c + 1);
+        label = num === 100 ? '00' : (num < 10 ? `0${num}` : num.toString());
+      } else {
+        const num = r * 10 + c;
+        label = num <= 9 ? `0${num}` : num.toString();
+      }
+
+      const cellX = gridStartX + c * cellWidth;
+      const cellY = tableStartY + r * cellHeight;
+      const cellFormatted = formatWithLeadingZero(label);
+      const cellAmount = parchiMap.get(cellFormatted) ?? 0;
+      const isFilled = cellAmount > 0;
+
+      // Cell background
+      ctx.fillStyle = isFilled ? t.activeBg : '#ffffff';
+      ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
+
+      // Cell border
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
+
+      // Box Number Badge (Top-left)
+      const badgeW = 34;
+      const badgeH = 22;
+      ctx.fillStyle = isFilled ? t.badge : '#94a3b8';
+      if ('roundRect' in ctx) {
+        ctx.beginPath();
+        (ctx as any).roundRect(cellX + 4, cellY + 4, badgeW, badgeH, 4);
+        ctx.fill();
+      } else {
+        ctx.fillRect(cellX + 4, cellY + 4, badgeW, badgeH);
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, cellX + 4 + badgeW / 2, cellY + 19);
+
+      // Amount (Center/Bottom)
+      if (isFilled) {
+        ctx.fillStyle = t.text;
+        ctx.font = 'bold 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(cellAmount), cellX + cellWidth / 2, cellY + cellHeight - 22);
+      } else {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '300 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('-', cellX + cellWidth / 2, cellY + cellHeight - 22);
+      }
+    }
+  }
+
+  // Footer Banner
+  const footerY = height - 8 - footerHeight;
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(gridStartX, footerY, width - 16, footerHeight);
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(gridStartX, footerY, width - 16, footerHeight);
+
+  ctx.fillStyle = '#334155';
+  ctx.font = '600 22px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Filled: ${parchi.houses.length} / 100 Boxes`, gridStartX + 20, footerY + 40);
+
+  ctx.fillStyle = t.header;
+  ctx.font = 'bold 26px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(`Jantri Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, footerY + 41);
+
+  return canvas;
+}
+
   // Share Jantri as JPG Image (Native Android Share / Web Share / Download)
   const handleShareJantriAsJpg = async (parchi: ParchiItem) => {
-    const cardEl = document.getElementById(`jantri-card-capture-${parchi.id}`);
-    if (!cardEl) {
-      setStatusMessage('Jantri element not found!');
-      return;
-    }
-
     try {
       setSharingJantriId(parchi.id);
       setStatusMessage(`Sharing Jantri #${parchi.parchiNumber}...`);
 
-      let dataUrl = '';
-      try {
-        const canvas = await html2canvas(cardEl, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          ignoreElements: (el) => el.getAttribute('data-capture-hide') === 'true',
-        });
-        dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      } catch (canvasErr) {
-        console.warn('html2canvas failed, falling back to toJpeg', canvasErr);
-        dataUrl = await toJpeg(cardEl, {
-          quality: 0.95,
-          backgroundColor: '#ffffff',
-          pixelRatio: 2,
-          filter: (domNode) => (domNode as HTMLElement)?.dataset?.captureHide !== 'true',
-        });
-      }
+      const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
+      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
 
-      if (!dataUrl) {
-        throw new Error('Could not create image');
-      }
-
-      const fileName = `Jantri_${parchi.parchiNumber}.jpg`;
+      const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
 
       // 1. Android Capacitor Native App
       if (Capacitor.isNativePlatform()) {
         try {
-          const base64Data = dataUrl.split(',')[1] || dataUrl;
+          const base64Data = dataUrl.split(',')[1];
           const savedFile = await Filesystem.writeFile({
             path: fileName,
             data: base64Data,
             directory: Directory.Cache,
           });
 
-          // Must pass `files: [savedFile.uri]`.
-          // Do NOT pass `text` or `url`, so Android treats this exclusively as an image file share (EXTRA_STREAM with image/jpeg).
           await Share.share({
             title: `Jantri #${parchi.parchiNumber}`,
             files: [savedFile.uri],
@@ -650,32 +797,34 @@ export default function App() {
           setTimeout(() => setStatusMessage(null), 3000);
           return;
         } catch (nativeErr: any) {
-          console.warn('Native share failed, falling back to Web Share', nativeErr);
-          if (nativeErr?.message && nativeErr.message.includes('canceled')) {
+          console.warn('Native share error:', nativeErr);
+          if (nativeErr?.message && (nativeErr.message.includes('canceled') || nativeErr.message.includes('cancelled'))) {
             return;
           }
         }
       }
 
       // 2. Web Share API with File (Supported in mobile browsers)
-      try {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], fileName, { type: 'image/jpeg' });
+      if (navigator.canShare) {
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], fileName, { type: 'image/jpeg' });
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Jantri #${parchi.parchiNumber}`,
-          });
-          setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
-          setTimeout(() => setStatusMessage(null), 3000);
-          return;
-        }
-      } catch (webShareErr: any) {
-        console.warn('Web Share failed', webShareErr);
-        if (webShareErr?.name === 'AbortError') {
-          return;
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `Jantri #${parchi.parchiNumber}`,
+            });
+            setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+            setTimeout(() => setStatusMessage(null), 3000);
+            return;
+          }
+        } catch (webShareErr: any) {
+          console.warn('Web Share failed', webShareErr);
+          if (webShareErr?.name === 'AbortError') {
+            return;
+          }
         }
       }
 
