@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v1.6.0
-          name: Aman Jantri v1.6.0 (Native Android Share & Gallery Save Fix)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring custom native Android plugin for 100% reliable WhatsApp/Telegram JPG sharing and direct MediaStore Gallery saving."
+          tag_name: v1.7.0
+          name: Aman Jantri v1.7.0 (Clean Layout, Aligned Buttons & Pull Down Refresh)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring cleaned up Jantri header, Share & Download in one row, removed R1-R10 badges, removed houses/filled boxes counters, and added swipe pull-down to refresh."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

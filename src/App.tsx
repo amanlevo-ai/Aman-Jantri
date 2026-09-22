@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
 import { Share } from '@capacitor/share';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -187,19 +187,11 @@ function SingleJantriBoxGrid({
       className={`w-full bg-white rounded-xl border ${theme.borderColor} shadow-sm overflow-hidden`}
     >
       {/* Header */}
-      <div className={`${theme.headerBg} text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between shadow-xs flex-wrap gap-2`}>
-        <div className="flex items-center gap-2">
-          <h3 className="text-base sm:text-lg font-bold tracking-wide">
-            Jantri #{parchi.parchiNumber}
-          </h3>
-          <span className="text-[11px] bg-white/20 text-white font-medium px-2 py-0.5 rounded-full">
-            {parchi.houses.length} Houses Filled
-          </span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs sm:text-sm font-black bg-black/25 px-2.5 py-1 rounded-md text-white">
-            Total: ₹{parchi.totalAmount.toLocaleString('en-IN')}
-          </span>
+      <div className={`${theme.headerBg} text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between shadow-xs gap-2`}>
+        <h3 className="text-base sm:text-lg font-bold tracking-wide">
+          Jantri #{parchi.parchiNumber}
+        </h3>
+        <div className="flex items-center gap-2 shrink-0">
           {onShare && (
             <button
               type="button"
@@ -317,30 +309,20 @@ function SingleJantriBoxGrid({
             /* 11th Column: Row Total Cell */
             <div
               key={`jantri-${parchi.id}-row-total-${rowIndex}`}
-              className={`border-b border-amber-200/90 bg-amber-50/85 p-[1px] sm:p-1 flex flex-col justify-between items-center min-h-[38px] sm:min-h-[44px] ${
+              className={`border-b border-amber-200/90 bg-amber-50/85 p-[1px] sm:p-1 flex items-center justify-center min-h-[38px] sm:min-h-[44px] ${
                 rowIndex === 9 ? 'border-b-0' : ''
               }`}
             >
-              <div className="flex items-center justify-center w-full">
-                <span className="text-[7px] sm:text-[8px] font-black text-amber-800 bg-amber-200/90 px-1 py-0.5 rounded-xs leading-none">
-                  R{rowIndex + 1}
-                </span>
-              </div>
-              <div className="mt-0.5 w-full text-center">
-                <span className="block font-black text-amber-950 font-mono text-[10px] sm:text-xs md:text-sm tracking-tight truncate">
-                  {rowTotal > 0 ? rowTotal : '-'}
-                </span>
-              </div>
+              <span className="block font-black text-amber-950 font-mono text-[11px] sm:text-xs md:text-sm tracking-tight truncate">
+                {rowTotal > 0 ? rowTotal : '-'}
+              </span>
             </div>,
           ];
         })}
       </div>
 
       {/* Footer */}
-      <div className="p-2 sm:p-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs sm:text-sm flex-wrap gap-2">
-        <span className="text-gray-600 font-medium">
-          Filled Boxes: <strong className="text-gray-900">{parchi.houses.length}</strong> / 100
-        </span>
+      <div className="p-2 sm:p-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-end text-xs sm:text-sm">
         <div className="font-bold text-gray-800">
           Jantri Total: <span className={`font-mono text-sm sm:text-base font-black ${theme.accentText}`}>₹{parchi.totalAmount.toLocaleString('en-IN')}</span>
         </div>
@@ -364,6 +346,58 @@ export default function App() {
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
   const [sharingJantriId, setSharingJantriId] = useState<number | null>(null);
   const [downloadingJantriId, setDownloadingJantriId] = useState<number | null>(null);
+
+  // Pull down to refresh app
+  const [pullY, setPullY] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const touchStartY = useRef<number>(0);
+  const isPullingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      if (window.scrollY <= 5) {
+        touchStartY.current = e.touches[0].clientY;
+        isPullingRef.current = true;
+      } else {
+        isPullingRef.current = false;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isPullingRef.current) return;
+      if (window.scrollY <= 5) {
+        const diff = e.touches[0].clientY - touchStartY.current;
+        if (diff > 0) {
+          const clamped = Math.min(diff * 0.45, 95);
+          setPullY(clamped);
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isPullingRef.current) return;
+      isPullingRef.current = false;
+      if (pullY > 55) {
+        setIsRefreshing(true);
+        setPullY(50);
+        setTimeout(() => {
+          window.location.reload();
+        }, 400);
+      } else {
+        setPullY(0);
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [pullY]);
 
   // 10 column headers: 1 to 10 (or 0 to 9 in 0-99 mode) without leading zeros
   const columns = useMemo(() => {
@@ -706,17 +740,6 @@ function renderJantriToCanvas(
   ctx.textAlign = 'left';
   ctx.fillText(`Jantri #${parchi.parchiNumber}`, 30, 65);
 
-  // Subtitle (Houses count)
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = '600 20px sans-serif';
-  ctx.fillText(`${parchi.houses.length} Houses Filled`, 250, 64);
-
-  // Header Total
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 36px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(`Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, 65);
-
   // Grid Dimensions (10 rows x 11 cols)
   const gridStartX = 8;
   const gridStartY = 98;
@@ -844,33 +867,17 @@ function renderJantriToCanvas(
     ctx.lineWidth = 1;
     ctx.strokeRect(totalCellX, totalCellY, totalCellW, cellHeight);
 
-    // Row indicator badge (e.g. R1, R2, ..., R10)
-    const rBadgeW = 28;
-    const rBadgeH = 19;
-    ctx.fillStyle = '#fde68a';
-    if ('roundRect' in ctx) {
-      ctx.beginPath();
-      (ctx as any).roundRect(totalCellX + (totalCellW - rBadgeW) / 2, totalCellY + 4, rBadgeW, rBadgeH, 3);
-      ctx.fill();
-    } else {
-      ctx.fillRect(totalCellX + (totalCellW - rBadgeW) / 2, totalCellY + 4, rBadgeW, rBadgeH);
-    }
-    ctx.fillStyle = '#78350f';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`R${r + 1}`, totalCellX + totalCellW / 2, totalCellY + 17);
-
-    // Row total amount text
+    // Row total amount text (centered, no R1/R2 badge)
     if (rowTotal > 0) {
       ctx.fillStyle = '#451a03';
-      ctx.font = 'bold 22px monospace';
+      ctx.font = 'bold 24px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(String(rowTotal), totalCellX + totalCellW / 2, totalCellY + cellHeight - 22);
+      ctx.fillText(String(rowTotal), totalCellX + totalCellW / 2, totalCellY + cellHeight / 2 + 8);
     } else {
       ctx.fillStyle = '#d1d5db';
-      ctx.font = '300 18px sans-serif';
+      ctx.font = '300 20px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('-', totalCellX + totalCellW / 2, totalCellY + cellHeight - 22);
+      ctx.fillText('-', totalCellX + totalCellW / 2, totalCellY + cellHeight / 2 + 7);
     }
   }
 
@@ -882,15 +889,10 @@ function renderJantriToCanvas(
   ctx.lineWidth = 1;
   ctx.strokeRect(gridStartX, footerY, width - 16, footerHeight);
 
-  ctx.fillStyle = '#334155';
-  ctx.font = '600 22px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`Filled: ${parchi.houses.length} / 100 Boxes`, gridStartX + 20, footerY + 40);
-
   ctx.fillStyle = t.header;
-  ctx.font = 'bold 26px monospace';
+  ctx.font = 'bold 28px monospace';
   ctx.textAlign = 'right';
-  ctx.fillText(`Jantri Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, footerY + 41);
+  ctx.fillText(`Jantri Total: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, width - 30, footerY + 42);
 
   return canvas;
 }
@@ -1051,7 +1053,18 @@ function renderJantriToCanvas(
   };
 
   return (
-    <div id="jantri-app-container" className="min-h-screen bg-[#f1f5f9] text-gray-800 flex flex-col font-sans overflow-x-hidden">
+    <div id="jantri-app-container" className="min-h-screen bg-[#f1f5f9] text-gray-800 flex flex-col font-sans overflow-x-hidden relative">
+      {/* Pull Down to Refresh Indicator */}
+      {(pullY > 0 || isRefreshing) && (
+        <div
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 transition-all duration-100 flex items-center gap-2 bg-[#21324a] text-white px-4 py-1.5 rounded-full shadow-2xl border border-amber-400/50 text-xs font-bold pointer-events-none"
+          style={{ transform: `translate(-50%, ${pullY * 0.7}px)` }}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${pullY > 55 || isRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isRefreshing ? 'Refreshing app...' : pullY > 55 ? 'Release to refresh' : 'Pull down to refresh'}</span>
+        </div>
+      )}
+
       {/* Top App Header */}
       <header id="main-header" className="bg-[#21324a] text-white px-3 sm:px-4 py-2 sm:py-2.5 shadow-md flex items-center justify-between sticky top-0 z-30">
         <h1 className="text-base sm:text-xl font-bold tracking-wide text-amber-400">
