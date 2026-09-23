@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
 import { Share } from '@capacitor/share';
+import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 interface NativeJantriPluginType {
@@ -529,6 +530,7 @@ export default function App() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanSuccessMessage, setScanSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   // Memoized parsed data
   const parsedCustomData = useMemo(() => {
@@ -537,10 +539,7 @@ export default function App() {
 
   const isCustomMode = userTab === 'custom' || userTab === 'scan';
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processSelectedFile = (file: File) => {
     setSelectedImageFile(file);
     setScanError(null);
     setScanSuccessMessage(null);
@@ -552,6 +551,80 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processSelectedFile(file);
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const photo = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Base64,
+          source: CameraSource.Camera,
+        });
+
+        if (photo?.base64String) {
+          const mime = `image/${photo.format || 'jpeg'}`;
+          const byteCharacters = atob(photo.base64String);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: mime });
+          const file = new File([blob], `parchi_camera_${Date.now()}.${photo.format || 'jpg'}`, { type: mime });
+          processSelectedFile(file);
+          return;
+        }
+      }
+    } catch (e: any) {
+      console.warn('Native camera error / cancelled:', e);
+      if (e?.message && (e.message.includes('User cancelled') || e.message.includes('cancelled'))) {
+        return;
+      }
+    }
+    // Web / HTML5 fallback
+    cameraInputRef.current?.click();
+  };
+
+  const handlePickGallery = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const photo = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Base64,
+          source: CameraSource.Photos,
+        });
+
+        if (photo?.base64String) {
+          const mime = `image/${photo.format || 'jpeg'}`;
+          const byteCharacters = atob(photo.base64String);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: mime });
+          const file = new File([blob], `parchi_gallery_${Date.now()}.${photo.format || 'jpg'}`, { type: mime });
+          processSelectedFile(file);
+          return;
+        }
+      }
+    } catch (e: any) {
+      console.warn('Native gallery picker error / cancelled:', e);
+      if (e?.message && (e.message.includes('User cancelled') || e.message.includes('cancelled'))) {
+        return;
+      }
+    }
+    // Web / HTML5 fallback
+    fileInputRef.current?.click();
+  };
+
   const handleClearImage = () => {
     setSelectedImageFile(null);
     setSelectedImagePreview(null);
@@ -559,6 +632,9 @@ export default function App() {
     setScanSuccessMessage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
     }
   };
 
@@ -1663,7 +1739,7 @@ function renderJantriToCanvas(
               </div>
             </div>
 
-            {/* File Picker / Drop Area */}
+            {/* File Picker / Camera Area */}
             <div className="border-2 border-dashed border-slate-200 hover:border-amber-400 rounded-xl p-3 sm:p-4 text-center transition-colors bg-slate-50/50">
               <input
                 ref={fileInputRef}
@@ -1673,24 +1749,41 @@ function renderJantriToCanvas(
                 className="hidden"
                 id="parchi-image-file-input"
               />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageSelect}
+                className="hidden"
+                id="parchi-camera-file-input"
+              />
               
               {!selectedImagePreview ? (
-                <label
-                  htmlFor="parchi-image-file-input"
-                  className="flex flex-col items-center justify-center gap-2 cursor-pointer py-3"
-                >
-                  <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
-                    <UploadCloud className="w-6 h-6" />
+                <div className="py-2 px-1 flex flex-col items-center justify-center gap-3">
+                  <div className="flex items-center gap-2.5 sm:gap-3.5 w-full max-w-md justify-center flex-wrap sm:flex-nowrap">
+                    <button
+                      type="button"
+                      onClick={handleTakePhoto}
+                      className="flex-1 min-w-[135px] py-3 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white rounded-xl shadow-md font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Camera className="w-6 h-6 text-amber-300" />
+                      <span>Click Photo (Camera)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePickGallery}
+                      className="flex-1 min-w-[135px] py-3 px-3 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white rounded-xl shadow-md font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <ImageIcon className="w-6 h-6 text-sky-400" />
+                      <span>Choose from Gallery</span>
+                    </button>
                   </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-800">
-                      Click to Select Screenshot or Photo
-                    </span>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Choose from Gallery or take a photo with Camera
-                    </p>
-                  </div>
-                </label>
+                  <p className="text-[11px] text-slate-500 text-center">
+                    Tap <strong>Click Photo</strong> to snap paper parchi or <strong>Choose from Gallery</strong> for WhatsApp screenshot
+                  </p>
+                </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center gap-3 text-left">
                   <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shrink-0">
@@ -1802,25 +1895,43 @@ function renderJantriToCanvas(
           </section>
         )}
 
-        {/* 100 Text Boxes Responsive Grid - Modern Blue Design */}
+        {/* 100 Text Boxes Responsive Grid + Total Column - Modern Blue Design */}
         <div
           id="jantri-table-container"
           className="w-full bg-white rounded-xl border border-blue-300/80 shadow-md overflow-hidden"
         >
-          <div className="w-full grid grid-cols-10 border-collapse">
+          <div className="w-full grid grid-cols-11 border-collapse">
             {/* Column Headers 1 to 10 with sleek Royal Blue gradient */}
             {columns.map((colNum) => (
               <div
                 key={`col-header-${colNum}`}
-                className="bg-gradient-to-b from-[#1e3a8a] to-[#1e40af] py-1 sm:py-1.5 font-bold text-white text-[10px] sm:text-xs md:text-sm text-center border-b border-r border-blue-900/40 last:border-r-0 tracking-wide select-none shadow-xs"
+                className="bg-gradient-to-b from-[#1e3a8a] to-[#1e40af] py-1 sm:py-1.5 font-bold text-white text-[9px] sm:text-xs md:text-sm text-center border-b border-r border-blue-900/40 tracking-wide select-none shadow-xs"
               >
                 {colNum}
               </div>
             ))}
 
-            {/* 100 Grid Cells (10 rows x 10 columns) */}
-            {gridCells.flatMap((rowCells, rowIndex) =>
-              rowCells.map((cell) => {
+            {/* 11th Column Header: Total */}
+            <div
+              key="col-header-main-total"
+              className="bg-gradient-to-b from-amber-600 to-amber-700 py-1 sm:py-1.5 font-black text-white text-[9px] sm:text-xs md:text-sm text-center border-b border-amber-800/40 tracking-wide select-none shadow-xs"
+            >
+              Total
+            </div>
+
+            {/* 100 Grid Cells + 10 Row Total Cells (11 columns per row) */}
+            {gridCells.flatMap((rowCells, rowIndex) => {
+              // Calculate Row Total
+              const rowTotal = rowCells.reduce((sum, cell) => {
+                const cellNum = parseInt(cell.label, 10) === 0 ? 100 : parseInt(cell.label, 10);
+                if (isCustomMode) {
+                  return sum + (parsedCustomData.amountsMap[cellNum] || 0);
+                } else {
+                  return sum + (parseFloat(amount) || 0);
+                }
+              }, 0);
+
+              const cellElements = rowCells.map((cell) => {
                 const cellNum = parseInt(cell.label, 10) === 0 ? 100 : parseInt(cell.label, 10);
                 const hasCustomVal = isCustomMode && parsedCustomData.amountsMap[cellNum] !== undefined;
                 const cellVal = isCustomMode
@@ -1830,11 +1941,11 @@ function renderJantriToCanvas(
                 return (
                   <div
                     key={`cell-${cell.label}`}
-                    className={`border-b border-r border-blue-100/90 last:border-r-0 ${
+                    className={`border-b border-r border-blue-100/90 ${
                       rowIndex === 9 ? 'border-b-0' : ''
                     } ${
                       hasCustomVal ? 'bg-amber-100/80 shadow-inner' : 'bg-white hover:bg-blue-50/70'
-                    } transition-colors p-[1.5px] sm:p-1.5 flex flex-col justify-between`}
+                    } transition-colors p-[1px] sm:p-1.5 flex flex-col justify-between`}
                   >
                     {/* Top Badge: Modern Blue Pill Badge */}
                     <div className="flex items-center justify-start">
@@ -1843,7 +1954,7 @@ function renderJantriToCanvas(
                           hasCustomVal
                             ? 'bg-gradient-to-r from-amber-600 to-amber-700'
                             : 'bg-gradient-to-r from-blue-600 to-indigo-600'
-                        } text-white text-[9px] sm:text-[10px] md:text-[11px] font-bold px-1 sm:px-1.5 py-0.5 rounded-sm select-none leading-none shadow-xs tracking-tight`}
+                        } text-white text-[8px] sm:text-[10px] md:text-[11px] font-bold px-0.5 sm:px-1.5 py-0.5 rounded-sm select-none leading-none shadow-xs tracking-tight`}
                         title={`Number: ${cell.label}`}
                       >
                         {cell.label}
@@ -1859,13 +1970,36 @@ function renderJantriToCanvas(
                         aria-label={`Box ${cell.label}`}
                         className={`w-full text-center font-extrabold ${
                           hasCustomVal ? 'text-amber-950 font-black' : 'text-blue-950'
-                        } text-[11px] sm:text-xs md:text-sm py-0.5 px-0 bg-transparent border-0 outline-none cursor-default select-all truncate tracking-tight`}
+                        } text-[10px] sm:text-xs md:text-sm py-0.5 px-0 bg-transparent border-0 outline-none cursor-default select-all truncate tracking-tight`}
                       />
                     </div>
                   </div>
                 );
-              })
-            )}
+              });
+
+              // 11th Column Cell: Row Total (R1, R2... R10)
+              const totalElement = (
+                <div
+                  key={`row-total-${rowIndex}`}
+                  className={`border-b border-amber-200/90 ${
+                    rowIndex === 9 ? 'border-b-0' : ''
+                  } bg-amber-50/90 hover:bg-amber-100/70 transition-colors p-[1px] sm:p-1.5 flex flex-col justify-between items-center`}
+                >
+                  <div className="flex items-center justify-center w-full">
+                    <span className="text-[7.5px] sm:text-[9px] md:text-[10px] font-bold text-amber-800 bg-amber-200/80 px-1 py-0.2 rounded-xs select-none shadow-2xs">
+                      R{rowIndex + 1}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 sm:mt-1 w-full text-center">
+                    <span className={`font-mono font-black text-[10px] sm:text-xs md:text-sm truncate block ${rowTotal > 0 ? 'text-amber-950' : 'text-gray-300'}`}>
+                      {rowTotal > 0 ? rowTotal.toLocaleString('en-IN') : '-'}
+                    </span>
+                  </div>
+                </div>
+              );
+
+              return [...cellElements, totalElement];
+            })}
           </div>
         </div>
 
