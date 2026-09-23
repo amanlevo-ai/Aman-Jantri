@@ -240,26 +240,26 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           <section className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 space-y-1.5 shadow-2xs">
             <div className="font-bold flex items-center gap-1.5 text-blue-950 text-xs sm:text-sm">
               <Info className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>How to set User Name & Password (Kaise Banayein):</span>
+              <span>Quick Setup & User Management Guide:</span>
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[11px] sm:text-xs text-blue-800 font-medium pl-1">
               <li>
-                Neeche <strong>Username / Mobile Number</strong>, <strong>Password</strong> aur <strong>Plan Validity</strong> select karein.
+                Enter <strong>Username / Mobile Number</strong>, <strong>Password</strong>, and select <strong>Plan Duration</strong> below.
               </li>
               <li>
-                <strong>"+ Add User"</strong> button par click karein. Account turant ban jayega.
+                Click <strong>"+ Add User"</strong> to create the account immediately.
               </li>
               <li>
-                User ko unka Username aur Password de dein. Vo apne mobile par login kar sakte hain.
+                Share the credentials with the user so they can log in on their mobile device.
               </li>
               <li>
-                <strong>Single Device Rule:</strong> Ek user ek waqt me sirf 1 phone par chalega. Dusre phone par login karte hi purana phone logout ho jayega.
+                <strong>Single Device Security:</strong> An account can only be active on one phone at a time. Logging in on a second phone immediately logs out previous devices.
               </li>
               <li>
-                <strong>Per-Year Subscription Plan:</strong> Expiry date aate hi user ki app lock ho jayegi. Unhe renew karne ke liye unke naam ke aage green <strong>"+1 Year"</strong> button daba dein!
+                <strong>Subscription Plan:</strong> When the plan expires, the app locks automatically. Click the green <strong>"+1 Year Plan"</strong> button next to any user to renew their access instantly.
               </li>
               <li>
-                Kisi bhi user ka password badalne ke liye unke naam ke aage <strong>"Reset Pass"</strong> par click karein.
+                To change or reset any user's password, click <strong>"Reset Pass"</strong> next to their name.
               </li>
             </ol>
           </section>
@@ -268,7 +268,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           <section className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs">
             <h3 className="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
               <UserPlus className="w-4 h-4 text-emerald-600" />
-              <span>Create New User & Set Plan (Naya User & Validity Set Karein)</span>
+              <span>Create New User & Set Plan Duration</span>
             </h3>
 
             <form

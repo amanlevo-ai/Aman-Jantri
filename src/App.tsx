@@ -851,7 +851,7 @@ export default function App() {
   // Shows the EXACT same parchi results auto-filled into 100-boxes! Active ONLY after Process Parchi!
   const handleProcessJantri = () => {
     if (generatedParchis.length === 0) {
-      setStatusMessage('Pehle "Process parchi" par click karein!');
+      setStatusMessage('Please click "Process Parchi" first!');
       setTimeout(() => setStatusMessage(null), 3500);
       return;
     }
@@ -1643,7 +1643,7 @@ function renderJantriToCanvas(
               title={
                 generatedParchis.length > 0
                   ? `Open filled 100-boxes Jantri (${generatedParchis.length} Jantries)`
-                  : 'Pehle "Process parchi" par click karein'
+                  : 'Please click "Process Parchi" first'
               }
             >
               <Layers className="w-4 h-4" />
@@ -1910,7 +1910,7 @@ function renderJantriToCanvas(
                 Security Alert: Date Mismatch
               </span>
               <h3 className="text-xl font-black text-gray-900">
-                Phone Date Galat Payi Gayi
+                Incorrect Device Date Detected
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
                 {tamperedNotice}
@@ -1918,11 +1918,11 @@ function renderJantriToCanvas(
             </div>
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-left text-xs space-y-1.5 text-amber-900">
-              <div className="font-bold">Kaise Sahi Karein:</div>
+              <div className="font-bold">How to Resolve:</div>
               <ol className="list-decimal list-inside space-y-1 text-[11px] text-amber-800">
-                <li>Apne phone ki <strong>Settings &rarr; Date & Time</strong> me jayein.</li>
-                <li><strong>"Set Automatically / Network-provided time"</strong> ko ON karein.</li>
-                <li>Wapas aakar <strong>"Verify Date"</strong> button dabayein.</li>
+                <li>Go to your phone <strong>Settings &rarr; Date & Time</strong>.</li>
+                <li>Turn ON <strong>"Set Automatically / Network-provided time"</strong>.</li>
+                <li>Return here and tap <strong>"Verify Date"</strong>.</li>
               </ol>
             </div>
 
@@ -1971,16 +1971,16 @@ function renderJantriToCanvas(
                 Plan Expired
               </span>
               <h3 className="text-xl font-black text-gray-900">
-                App Locked (Plan Samapt Ho Gaya)
+                App Locked (Subscription Expired)
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Aapka software subscription plan{" "}
+                Your software subscription plan expired on{" "}
                 <strong className="text-red-600 font-semibold">
                   {currentUser.plan?.expiryDate
                     ? new Date(currentUser.plan.expiryDate).toLocaleDateString()
-                    : "khatam"}
-                </strong>{" "}
-                ko expire ho gaya hai. Jantri software chalane ke liye kripya apna plan renew karwayein.
+                    : "an earlier date"}
+                </strong>
+                . To continue using Jantri software, please contact your administrator to renew your plan.
               </p>
             </div>
 
@@ -1995,7 +1995,7 @@ function renderJantriToCanvas(
                 <strong className="text-red-600 font-bold">Expired</strong>
               </div>
               <div className="text-gray-500 pt-1 border-t border-gray-200 text-[11px]">
-                👉 Apne Administrator se contact karein aur apna 1-Year plan activate karwayein.
+                👉 Please contact your Administrator to renew and activate your subscription plan.
               </div>
             </div>
 
