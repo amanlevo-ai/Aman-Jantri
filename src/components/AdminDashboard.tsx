@@ -82,6 +82,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   // Gemini AI Vision Scanner Setup State
   const [adminApiKey, setAdminApiKey] = useState(() => getGeminiApiKey());
   const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+  const [showAdminApiKey, setShowAdminApiKey] = useState(false);
 
   // Feedback states
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -959,13 +960,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <label className="text-xs font-bold text-slate-300">
                   Gemini API Key:
                 </label>
-                <input
-                  type="text"
-                  value={adminApiKey}
-                  onChange={(e) => setAdminApiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
+                <div className="relative">
+                  <input
+                    type={showAdminApiKey ? "text" : "password"}
+                    value={adminApiKey}
+                    onChange={(e) => setAdminApiKey(e.target.value)}
+                    placeholder="Enter or paste Gemini API Key"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 pr-11 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminApiKey(!showAdminApiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer p-1"
+                    title={showAdminApiKey ? "Hide key" : "Show key"}
+                  >
+                    {showAdminApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 <p className="text-[11px] text-slate-400">
                   Free key link:{' '}
                   <a

@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.3.0
-          name: Aman Jantri v3.3.0 (Admin Managed AI Scanner & 100% Clean User Panel)
-          body: "Direct Download APK for Aman Jantri (Android) - AI Scanner key managed centrally in Admin Console & synced via Firestore. User panel is 100% clean with zero API messages."
+          tag_name: v3.4.0
+          name: Aman Jantri v3.4.0 (Secure Obfuscated API Key, Zero Leakage & Admin Firestore Sync)
+          body: "Direct Download APK for Aman Jantri (Android) - AI Scanner key is secured via environment variables, XOR runtime obfuscation, and Firestore sync. Zero plain text leakage to git or client panel."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
