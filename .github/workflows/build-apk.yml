@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.7.2
-          name: Aman Jantri v3.7.2 (Parchi Amount Cap & Clean Total Column)
-          body: "Direct Download APK for Aman Jantri (Android) - Enforces top box amount cap so no house in any generated parchi ever exceeds the entered amount, removes R1/R2 badges from Total column (only clean amount), and provides 4-tier AI Vision OCR with native Camera."
+          tag_name: v3.7.3
+          name: Aman Jantri v3.7.3 (Jantri Tab 10-Cols Clean & Scan Tab 11-Cols Total)
+          body: "Direct Download APK for Aman Jantri (Android) - Keeps standard clean 10-column table in Jantri tab, shows 11th Total column only in Upload Picture tab (without R1/R2 badges), enforces top box amount cap on parchis, and includes multi-tier AI Vision OCR."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

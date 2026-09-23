@@ -1930,41 +1930,43 @@ function renderJantriToCanvas(
           </section>
         )}
 
-        {/* 100 Text Boxes Responsive Grid + Total Column - Modern Blue Design */}
+        {/* 100 Text Boxes Responsive Grid - Modern Blue Design (11 cols in scan tab, 10 cols in jantri tab) */}
         <div
           id="jantri-table-container"
           className="w-full bg-white rounded-xl border border-blue-300/80 shadow-md overflow-hidden"
         >
-          <div className="w-full grid grid-cols-11 border-collapse">
+          <div className={`w-full grid ${userTab === 'scan' ? 'grid-cols-11' : 'grid-cols-10'} border-collapse`}>
             {/* Column Headers 1 to 10 with sleek Royal Blue gradient */}
             {columns.map((colNum) => (
               <div
                 key={`col-header-${colNum}`}
-                className="bg-gradient-to-b from-[#1e3a8a] to-[#1e40af] py-1 sm:py-1.5 font-bold text-white text-[9px] sm:text-xs md:text-sm text-center border-b border-r border-blue-900/40 tracking-wide select-none shadow-xs"
+                className={`bg-gradient-to-b from-[#1e3a8a] to-[#1e40af] py-1 sm:py-1.5 font-bold text-white text-[9px] sm:text-xs md:text-sm text-center border-b border-r border-blue-900/40 ${
+                  userTab !== 'scan' ? 'last:border-r-0' : ''
+                } tracking-wide select-none shadow-xs`}
               >
                 {colNum}
               </div>
             ))}
 
-            {/* 11th Column Header: Total */}
-            <div
-              key="col-header-main-total"
-              className="bg-gradient-to-b from-amber-600 to-amber-700 py-1 sm:py-1.5 font-black text-white text-[9px] sm:text-xs md:text-sm text-center border-b border-amber-800/40 tracking-wide select-none shadow-xs"
-            >
-              Total
-            </div>
+            {/* 11th Column Header: Total (Only in Upload Picture / Scan tab) */}
+            {userTab === 'scan' && (
+              <div
+                key="col-header-main-total"
+                className="bg-gradient-to-b from-amber-600 to-amber-700 py-1 sm:py-1.5 font-black text-white text-[9px] sm:text-xs md:text-sm text-center border-b border-amber-800/40 tracking-wide select-none shadow-xs"
+              >
+                Total
+              </div>
+            )}
 
-            {/* 100 Grid Cells + 10 Row Total Cells (11 columns per row) */}
+            {/* 100 Grid Cells (+ 10 Row Total Cells only in scan tab) */}
             {gridCells.flatMap((rowCells, rowIndex) => {
-              // Calculate Row Total
-              const rowTotal = rowCells.reduce((sum, cell) => {
-                const cellNum = parseInt(cell.label, 10) === 0 ? 100 : parseInt(cell.label, 10);
-                if (isCustomMode) {
-                  return sum + (parsedCustomData.amountsMap[cellNum] || 0);
-                } else {
-                  return sum + (parseFloat(amount) || 0);
-                }
-              }, 0);
+              const showTotal = userTab === 'scan';
+              const rowTotal = showTotal
+                ? rowCells.reduce((sum, cell) => {
+                    const cellNum = parseInt(cell.label, 10) === 0 ? 100 : parseInt(cell.label, 10);
+                    return sum + (parsedCustomData.amountsMap[cellNum] || 0);
+                  }, 0)
+                : 0;
 
               const cellElements = rowCells.map((cell) => {
                 const cellNum = parseInt(cell.label, 10) === 0 ? 100 : parseInt(cell.label, 10);
@@ -1977,6 +1979,8 @@ function renderJantriToCanvas(
                   <div
                     key={`cell-${cell.label}`}
                     className={`border-b border-r border-blue-100/90 ${
+                      !showTotal ? 'last:border-r-0' : ''
+                    } ${
                       rowIndex === 9 ? 'border-b-0' : ''
                     } ${
                       hasCustomVal ? 'bg-amber-100/80 shadow-inner' : 'bg-white hover:bg-blue-50/70'
@@ -2012,7 +2016,11 @@ function renderJantriToCanvas(
                 );
               });
 
-              // 11th Column Cell: Row Total (Only amount, NO R1, R2 badges)
+              if (!showTotal) {
+                return cellElements;
+              }
+
+              // 11th Column Cell: Row Total (Only in scan tab, only clean amount)
               const totalElement = (
                 <div
                   key={`row-total-${rowIndex}`}
