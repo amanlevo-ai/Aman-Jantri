@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.2.0
-          name: Aman Jantri v3.2.0 (Upload Picture & AI Vision Scanner for WhatsApp & Handwritten Slips)
-          body: "Direct Download APK for Aman Jantri (Android) - New Upload Picture tab with Gemini 2.0 Flash AI Vision to automatically scan WhatsApp screenshots and handwritten parchi slips and auto-fill the Jantri grid."
+          tag_name: v3.3.0
+          name: Aman Jantri v3.3.0 (Admin Managed AI Scanner & 100% Clean User Panel)
+          body: "Direct Download APK for Aman Jantri (Android) - AI Scanner key managed centrally in Admin Console & synced via Firestore. User panel is 100% clean with zero API messages."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

@@ -41,7 +41,8 @@ import {
 } from "../services/authService";
 import {
   getGeminiApiKey,
-  saveGeminiApiKey,
+  saveAdminGeminiApiKey,
+  fetchRemoteGeminiApiKey,
 } from "../services/visionService";
 import { UserProfile } from "../types";
 
@@ -105,6 +106,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   useEffect(() => {
     loadUsers();
+    fetchRemoteGeminiApiKey().then((k) => {
+      if (k) setAdminApiKey(k);
+    });
   }, []);
 
   // Summary Metrics
@@ -936,15 +940,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 setIsSavingApiKey(true);
-                saveGeminiApiKey(adminApiKey);
-                setTimeout(() => {
-                  setIsSavingApiKey(false);
-                  setSuccess("Gemini AI API Key saved successfully!");
+                try {
+                  await saveAdminGeminiApiKey(adminApiKey);
+                  setSuccess("Gemini AI API Key saved & activated for all users!");
                   setTimeout(() => setSuccess(null), 3500);
-                }, 300);
+                } catch (err: any) {
+                  setError("Failed to save API key: " + (err?.message || err));
+                } finally {
+                  setIsSavingApiKey(false);
+                }
               }}
               className="space-y-4"
             >
@@ -993,9 +1000,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 {adminApiKey && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       setAdminApiKey("");
-                      saveGeminiApiKey("");
+                      await saveAdminGeminiApiKey("");
                       setSuccess("Gemini API Key removed.");
                       setTimeout(() => setSuccess(null), 3000);
                     }}

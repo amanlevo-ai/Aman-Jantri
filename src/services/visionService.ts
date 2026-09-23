@@ -2,6 +2,8 @@
  * Vision Service: Gemini 2.0 Flash AI Vision for Parchi & Jantri Recognition
  * Reads both WhatsApp screenshots and handwritten paper slips with high accuracy.
  */
+import { db } from './authService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const STORAGE_KEY = 'aman_jantri_gemini_key';
 
@@ -28,6 +30,49 @@ export function saveGeminiApiKey(key: string): void {
     localStorage.setItem(STORAGE_KEY, key.trim());
   } else {
     localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
+/**
+ * Fetch Gemini API key remotely from Firestore system_settings/config
+ * so all client devices automatically receive the key configured by the Admin.
+ */
+export async function fetchRemoteGeminiApiKey(): Promise<string> {
+  if (!db) return getGeminiApiKey();
+  try {
+    const configDoc = await getDoc(doc(db, 'system_settings', 'config'));
+    if (configDoc.exists()) {
+      const data = configDoc.data();
+      if (data?.geminiApiKey && typeof data.geminiApiKey === 'string' && data.geminiApiKey.trim()) {
+        const key = data.geminiApiKey.trim();
+        saveGeminiApiKey(key);
+        return key;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to fetch remote Gemini key from Firestore:', e);
+  }
+  return getGeminiApiKey();
+}
+
+/**
+ * Admin action: Save Gemini API Key both locally and in Firestore for all users.
+ */
+export async function saveAdminGeminiApiKey(key: string): Promise<void> {
+  saveGeminiApiKey(key);
+  if (db) {
+    try {
+      await setDoc(
+        doc(db, 'system_settings', 'config'),
+        {
+          geminiApiKey: key.trim(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Failed to save Gemini key to Firestore:', e);
+    }
   }
 }
 
@@ -124,10 +169,14 @@ export async function scanParchiWithGemini(
   file: File | Blob,
   overrideApiKey?: string
 ): Promise<string> {
-  const apiKey = (overrideApiKey && overrideApiKey.trim()) || getGeminiApiKey();
+  let apiKey = (overrideApiKey && overrideApiKey.trim()) || getGeminiApiKey();
 
   if (!apiKey) {
-    throw new Error('API_KEY_REQUIRED');
+    apiKey = await fetchRemoteGeminiApiKey();
+  }
+
+  if (!apiKey) {
+    throw new Error('SERVICE_UNAVAILABLE');
   }
 
   // 1. Compress image client-side
@@ -176,7 +225,7 @@ export async function scanParchiWithGemini(
     } catch {
       errorDetails = response.statusText;
     }
-    throw new Error(`Gemini Scan Error (${response.status}): ${errorDetails}`);
+    throw new Error(`Scan Error: ${errorDetails}`);
   }
 
   const result = await response.json();

@@ -24,7 +24,7 @@ const app = isFirebaseConfigured()
     : getApp()
   : null;
 
-const db = app ? getFirestore(app) : null;
+export const db = app ? getFirestore(app) : null;
 
 // Generate unique session token
 export function generateSessionToken(): string {

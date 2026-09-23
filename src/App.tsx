@@ -49,8 +49,6 @@ import {
 } from './services/authService';
 import {
   scanParchiWithGemini,
-  getGeminiApiKey,
-  saveGeminiApiKey,
 } from './services/visionService';
 import { LoginModal } from './components/LoginModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
@@ -530,8 +528,6 @@ export default function App() {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanSuccessMessage, setScanSuccessMessage] = useState<string | null>(null);
-  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
-  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getGeminiApiKey());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Memoized parsed data
@@ -590,11 +586,10 @@ export default function App() {
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       console.error('Scan error:', err);
-      if (err.message === 'API_KEY_REQUIRED') {
-        setShowApiKeyModal(true);
-        setScanError('Please enter your Gemini API Key to enable AI picture scanning.');
+      if (err.message === 'SERVICE_UNAVAILABLE') {
+        setScanError('Scanning service is currently unavailable. Please contact administrator.');
       } else {
-        setScanError(err.message || 'Failed to scan image. Please try again.');
+        setScanError('Failed to scan image. Please ensure the picture is clear and try again.');
       }
     } finally {
       setIsScanning(false);
@@ -1656,28 +1651,15 @@ function renderJantriToCanvas(
         {/* Upload Picture Section (Only in Upload Picture tab) */}
         {userTab === 'scan' && (
           <section id="scan-picture-section" className="mb-3 sm:mb-4 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs space-y-3">
-            {/* Header with Title & Scanner Status */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-                  <Camera className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-gray-900">Upload Picture / Screenshot to Jantri</h3>
-                  <p className="text-[11px] text-gray-500">Supports WhatsApp screenshots & handwritten paper slips</p>
-                </div>
+            {/* Header with Title & Scanner Description */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                <Camera className="w-4 h-4" />
               </div>
-
-              {/* API Key Configure Button */}
-              <button
-                type="button"
-                onClick={() => setShowApiKeyModal(true)}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-700 flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Configure Gemini AI Key"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>{getGeminiApiKey() ? 'AI Key Configured' : 'Set Gemini Key'}</span>
-              </button>
+              <div>
+                <h3 className="text-xs sm:text-sm font-bold text-gray-900">Upload Picture / Screenshot to Jantri</h3>
+                <p className="text-[11px] text-gray-500">Supports WhatsApp screenshots & handwritten paper slips</p>
+              </div>
             </div>
 
             {/* File Picker / Drop Area */}
@@ -1757,20 +1739,9 @@ function renderJantriToCanvas(
 
             {/* Scan Error Notice */}
             {scanError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-xs text-red-700">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                  <span>{scanError}</span>
-                </div>
-                {(scanError.includes('API_KEY') || scanError.includes('Key')) && (
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKeyModal(true)}
-                    className="underline font-bold hover:text-red-800 ml-2 cursor-pointer"
-                  >
-                    Enter Key
-                  </button>
-                )}
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-xs text-red-700">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{scanError}</span>
               </div>
             )}
 
@@ -2383,77 +2354,6 @@ function renderJantriToCanvas(
             // Password changed
           }}
         />
-      )}
-
-      {/* Gemini AI Vision Key Configuration Modal */}
-      {showApiKeyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5 border border-slate-200 space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
-                <h3 className="text-sm font-bold text-slate-900">Gemini AI Vision Setup</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowApiKeyModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Google Gemini 2.0 Flash Vision reads both <strong>WhatsApp screenshots</strong> and <strong>handwritten paper slips</strong> with extreme precision. Enter your free API key below:
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">Gemini API Key</label>
-              <input
-                type="text"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder="AIzaSy..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-xs"
-              />
-              <p className="text-[11px] text-slate-500">
-                Get a free key in 30 seconds at{' '}
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-600 font-bold underline"
-                >
-                  Google AI Studio
-                </a>{' '}
-                (1,500 free scans/day).
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowApiKeyModal(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  saveGeminiApiKey(apiKeyInput);
-                  setShowApiKeyModal(false);
-                  setScanError(null);
-                  setStatusMessage('Gemini API Key saved successfully!');
-                  setTimeout(() => setStatusMessage(null), 3000);
-                }}
-                className="px-4 py-2 rounded-lg text-xs font-bold bg-[#21324a] text-amber-400 hover:bg-[#2a3f5c] cursor-pointer shadow-xs transition-colors"
-              >
-                Save Key
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
