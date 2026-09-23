@@ -150,20 +150,30 @@ export async function compressImageForVision(
   });
 }
 
-const VISION_SYSTEM_PROMPT = `You are an expert AI Optical Character Recognition (OCR) system specialized in reading Indian cricket and parchi/jantri slips, both digital screenshots (such as WhatsApp chats, SMS, notes) and handwritten paper slips written with pen.
+const VISION_SYSTEM_PROMPT = `You are an expert AI Optical Character Recognition (OCR) system specialized in reading Indian cricket and parchi/jantri slips.
+The image may be:
+1. Digital screenshots (such as WhatsApp chats, SMS, notes)
+2. Handwritten paper slips written with pen, pencil, or marker
+3. Exported Jantri grids / tables (1 to 100 boxes) showing filled numbers and amounts.
 
 Analyze the image carefully and extract all numbers and their corresponding betting/parchi amounts.
 Strictly adhere to the following rules:
 
 1. TARGET NUMBERS: Numbers from 00 to 99 (or 1 to 100). Always write single-digit numbers with leading zero (e.g., 01, 05, 09).
-2. OUTPUT FORMAT: For each group of numbers sharing the same amount, output a line in this exact format:
+2. OUTPUT FORMAT: For each number or group of numbers sharing the same amount, output a clean line:
+   [number] = [amount]
+   or:
    [number], [number], [number] = [amount]
    Example:
+   02 = 50
    05, 12, 45, 90 = 100
    25 = 500
    01, 02, 03 = 50
 
-3. EXPANDING COMBINATIONS & SPECIAL TERMS:
+3. IF THE IMAGE IS A JANTRI GRID/TABLE:
+   Extract every house/box that has an amount filled in! Do not skip any filled box. Ignore blank/empty boxes.
+
+4. EXPANDING COMBINATIONS & SPECIAL TERMS:
    - Andar (Aander / A / अंदर): Expand to all 10 numbers having that tens digit.
      Example: '5 andar = 100' or 'andar 5 = 100' -> '50, 51, 52, 53, 54, 55, 56, 57, 58, 59 = 100'
    - Bahar (Baher / B / बाहर): Expand to all 10 numbers having that units digit.
@@ -172,13 +182,13 @@ Strictly adhere to the following rules:
      Expand to each individual number: '01, 02, 03, 04, 05, 06, 07, 08, 09, 10 = 100'
    - Cross / Jodi / Family: If written as a pair like '12 x 50' or '12-50' or '12=50', format as '12 = 50'.
 
-4. CLEANLINESS:
+5. CLEANLINESS:
    - Output ONLY the lines in the format 'numbers = amount'.
-   - Do NOT include any explanations, greetings, markdown blocks (no \`\`\` or \`\`\`json), or headers.
+   - Do NOT include markdown bullet points, asterisks, explanations, greetings, or headers.
    - If no valid parchi numbers or amounts are found in the image, output nothing.`;
 
 /**
- * Scan an uploaded image/screenshot with Gemini 2.0 Flash Vision
+ * Scan an uploaded image/screenshot with Gemini AI Vision (gemini-3.6-flash)
  */
 export async function scanParchiWithGemini(
   file: File | Blob,
@@ -197,64 +207,76 @@ export async function scanParchiWithGemini(
   // 1. Compress image client-side
   const { base64Data, mimeType } = await compressImageForVision(file);
 
-  // 2. Call Gemini 2.0 Flash REST endpoint
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(
-    apiKey
-  )}`;
+  // 2. Models to try in order of priority
+  const models = ['gemini-3.6-flash', 'gemini-flash-latest'];
+  let lastError = '';
 
-  const payload = {
-    contents: [
-      {
-        parts: [
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
+        apiKey
+      )}`;
+
+      const payload = {
+        contents: [
           {
-            text: VISION_SYSTEM_PROMPT,
-          },
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: base64Data,
-            },
+            parts: [
+              {
+                text: VISION_SYSTEM_PROMPT,
+              },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data,
+                },
+              },
+            ],
           },
         ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 2048,
-    },
-  };
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+        },
+      };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-  if (!response.ok) {
-    let errorDetails = '';
-    try {
-      const errJson = await response.json();
-      errorDetails = errJson?.error?.message || response.statusText;
-    } catch {
-      errorDetails = response.statusText;
+      if (!response.ok) {
+        let errorDetails = '';
+        try {
+          const errJson = await response.json();
+          errorDetails = errJson?.error?.message || response.statusText;
+        } catch {
+          errorDetails = response.statusText;
+        }
+        lastError = errorDetails;
+        continue; // Try fallback model
+      }
+
+      const result = await response.json();
+      const rawText: string =
+        result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      // Clean output: strip markdown blocks and bullet characters
+      const cleanedText = rawText
+        .replace(/```[a-zA-Z]*\n?/g, '')
+        .replace(/```/g, '')
+        .split('\n')
+        .map((line) => line.replace(/^[\s*•\-]+/, '').trim())
+        .filter((line) => line.length > 0)
+        .join('\n');
+
+      return cleanedText;
+    } catch (err: any) {
+      lastError = err?.message || String(err);
     }
-    throw new Error(`Scan Error: ${errorDetails}`);
   }
 
-  const result = await response.json();
-  const rawText: string =
-    result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-  // Clean output
-  const cleanedText = rawText
-    .replace(/```[a-zA-Z]*\n?/g, '')
-    .replace(/```/g, '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .join('\n');
-
-  return cleanedText;
+  throw new Error(`Scan Error: ${lastError || 'Failed to process image'}`);
 }

@@ -586,10 +586,11 @@ export default function App() {
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       console.error('Scan error:', err);
-      if (err.message === 'SERVICE_UNAVAILABLE') {
+      if (err?.message === 'SERVICE_UNAVAILABLE') {
         setScanError('Scanning service is currently unavailable. Please contact administrator.');
       } else {
-        setScanError('Failed to scan image. Please ensure the picture is clear and try again.');
+        const msg = err?.message ? String(err.message).replace(/^Error:\s*/, '') : '';
+        setScanError(msg || 'Failed to scan image. Please ensure the picture is clear and try again.');
       }
     } finally {
       setIsScanning(false);
