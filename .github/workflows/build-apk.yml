@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.7.0
-          name: Aman Jantri v3.7.0 (Native Camera Click & 11-Column Total Grid)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring native Camera click support, 11th Total column with row totals (R1-R10) in main upload window, Gemini 3.6 Flash AI vision OCR, and live Firebase Realtime Database cloud sync."
+          tag_name: v3.7.1
+          name: Aman Jantri v3.7.1 (High-Demand AI Traffic Resilience & Multi-Model Fallback)
+          body: "Direct Download APK for Aman Jantri (Android) - Added multi-tier model fallback chain (Gemini 3.6 Flash, 3.5 Flash, 3.1 Flash Lite, Flash Latest) with auto-retry to prevent high demand spike errors, native Camera click, and 11th Total column."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

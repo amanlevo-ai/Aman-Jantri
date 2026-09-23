@@ -207,8 +207,13 @@ export async function scanParchiWithGemini(
   // 1. Compress image client-side
   const { base64Data, mimeType } = await compressImageForVision(file);
 
-  // 2. Models to try in order of priority
-  const models = ['gemini-3.6-flash', 'gemini-flash-latest'];
+  // 2. Models to try in order of priority (resilient against high demand spikes)
+  const models = [
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
+  ];
   let lastError = '';
 
   for (const model of models) {
@@ -256,7 +261,12 @@ export async function scanParchiWithGemini(
           errorDetails = response.statusText;
         }
         lastError = errorDetails;
-        continue; // Try fallback model
+
+        // If high demand (503) or rate-limit (429), pause briefly before trying next model
+        if (response.status === 503 || response.status === 429) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
+        continue; // Try next fallback model
       }
 
       const result = await response.json();
@@ -275,7 +285,12 @@ export async function scanParchiWithGemini(
       return cleanedText;
     } catch (err: any) {
       lastError = err?.message || String(err);
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
+  }
+
+  if (lastError && (lastError.includes('high demand') || lastError.includes('503'))) {
+    throw new Error('AI Vision servers are momentarily experiencing high traffic. Please tap Scan again in a few seconds.');
   }
 
   throw new Error(`Scan Error: ${lastError || 'Failed to process image'}`);
