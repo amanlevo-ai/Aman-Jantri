@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v2.9.0
-          name: Aman Jantri v2.9.0 (Professional User Table & Unified Client Management)
-          body: "Direct Download APK for Aman Jantri (Android) - Redesigned User Table with clean, professional columns (#, Client ID, Password, Plan Validity, Status, Actions), sleek KPI stats strip, and dedicated Client Management modal for renewals, custom date picking, password changes, and account controls."
+          tag_name: v3.0.0
+          name: Aman Jantri v3.0.0 (Jantri vs Custom Jantri Tabs & Clean Parchi Text Box)
+          body: "Direct Download APK for Aman Jantri (Android) - Added dedicated User Navigation Menu Bar with Jantri and Custom Jantri tabs. Custom Jantri opens a clean Parchi Text Box with amount symbols, test buttons, and helper text removed."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
