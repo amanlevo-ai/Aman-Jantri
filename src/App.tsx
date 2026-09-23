@@ -28,6 +28,8 @@ import {
   Shield,
   User,
   AlertCircle,
+  Lock,
+  Calendar,
 } from 'lucide-react';
 
 import { UserProfile } from './types';
@@ -422,23 +424,43 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [forceLogoutNotice, setForceLogoutNotice] = useState<string | null>(null);
 
-  // Real-time Single Device Session Enforcement Effect
+  // Check if current user's subscription plan is expired
+  const isPlanExpired = useMemo(() => {
+    if (!currentUser || currentUser.role === 'admin') return false;
+    if (!currentUser.plan?.expiryDate) return false;
+    return new Date() > new Date(currentUser.plan.expiryDate);
+  }, [currentUser]);
+
+  // Real-time Single Device Session Enforcement & Plan Sync Effect
   useEffect(() => {
     if (!currentUser) return;
 
-    const unsubscribe = subscribeToUserSession(currentUser.phoneNumber, (reason) => {
-      logoutUser();
-      setCurrentUser(null);
-      setShowChangePassword(false);
-      setShowAdminPanel(false);
-      setIsJantriModalOpen(false);
-      setForceLogoutNotice(reason);
-    });
+    const unsubscribe = subscribeToUserSession(
+      currentUser.phoneNumber,
+      (reason) => {
+        logoutUser();
+        setCurrentUser(null);
+        setShowChangePassword(false);
+        setShowAdminPanel(false);
+        setIsJantriModalOpen(false);
+        setForceLogoutNotice(reason);
+      },
+      (updatedUser) => {
+        // Real-time profile/plan update (e.g. when Admin extends plan)
+        setCurrentUser((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            ...updatedUser,
+          };
+        });
+      }
+    );
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [currentUser]);
+  }, [currentUser?.phoneNumber]);
 
   // Fast Entry Text Box state
   const [customEntryText, setCustomEntryText] = useState<string>('');
@@ -1225,14 +1247,37 @@ function renderJantriToCanvas(
 
         {currentUser && (
           <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
-            {/* User phone & role */}
+            {/* User phone & role & plan */}
             <div className="hidden xs:flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
               <User className="w-3.5 h-3.5 text-amber-400" />
               <span className="font-mono font-semibold text-slate-200">{currentUser.phoneNumber}</span>
-              {currentUser.role === 'admin' && (
+              {currentUser.role === 'admin' ? (
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/40">
                   ADMIN
                 </span>
+              ) : (
+                currentUser.plan?.expiryDate && (
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded border flex items-center gap-1 ${
+                      isPlanExpired
+                        ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}
+                  >
+                    <Calendar className="w-2.5 h-2.5" />
+                    <span>
+                      {isPlanExpired
+                        ? 'Expired'
+                        : `${Math.max(
+                            0,
+                            Math.ceil(
+                              (new Date(currentUser.plan.expiryDate).getTime() - Date.now()) /
+                                (1000 * 60 * 60 * 24)
+                            )
+                          )}d`}
+                    </span>
+                  </span>
+                )
               )}
             </div>
 
@@ -1820,6 +1865,72 @@ function renderJantriToCanvas(
             }
           }}
         />
+      )}
+
+      {/* Plan Expired Lock Screen Modal */}
+      {currentUser && isPlanExpired && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-7 text-center space-y-5 border border-red-200 animate-in zoom-in-95">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shadow-inner">
+              <Lock className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200">
+                Plan Expired
+              </span>
+              <h3 className="text-xl font-black text-gray-900">
+                App Locked (Plan Samapt Ho Gaya)
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Aapka software subscription plan{" "}
+                <strong className="text-red-600 font-semibold">
+                  {currentUser.plan?.expiryDate
+                    ? new Date(currentUser.plan.expiryDate).toLocaleDateString()
+                    : "khatam"}
+                </strong>{" "}
+                ko expire ho gaya hai. Jantri software chalane ke liye kripya apna plan renew karwayein.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-left text-xs space-y-1.5">
+              <div className="font-bold text-gray-800">Account Details:</div>
+              <div className="text-gray-600 flex justify-between">
+                <span>User ID / Phone:</span>
+                <strong className="font-mono text-gray-900">{currentUser.phoneNumber}</strong>
+              </div>
+              <div className="text-gray-600 flex justify-between">
+                <span>Status:</span>
+                <strong className="text-red-600 font-bold">Expired</strong>
+              </div>
+              <div className="text-gray-500 pt-1 border-t border-gray-200 text-[11px]">
+                👉 Apne Administrator se contact karein aur apna 1-Year plan activate karwayein.
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  logoutUser();
+                  setCurrentUser(null);
+                }}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors"
+              >
+                Log Out
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.reload();
+                }}
+                className="flex-1 bg-[#21324a] hover:bg-[#2c4263] text-amber-400 font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors shadow-sm"
+              >
+                Check Status
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Force Logout Notice Modal */}

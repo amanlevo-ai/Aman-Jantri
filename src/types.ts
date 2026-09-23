@@ -20,6 +20,13 @@ export interface ParchiItem {
   totalAmount: number;
 }
 
+export interface UserPlan {
+  status: 'active' | 'expired';
+  startDate: string;
+  expiryDate: string;
+  planName?: string;
+}
+
 export interface UserProfile {
   phoneNumber: string;
   password: string;
@@ -28,6 +35,7 @@ export interface UserProfile {
   lastLoginAt: string;
   isActive: boolean;
   createdAt: string;
+  plan?: UserPlan;
 }
 
 export interface AuthState {

@@ -12,7 +12,7 @@ import {
   Unsubscribe,
 } from "firebase/firestore";
 import { firebaseConfig, isFirebaseConfigured } from "../firebaseConfig";
-import { UserProfile } from "../types";
+import { UserProfile, UserPlan } from "../types";
 
 const LOCAL_STORAGE_USER_KEY = "aman_jantri_auth_user";
 const LOCAL_STORAGE_TOKEN_KEY = "aman_jantri_session_token";
@@ -46,25 +46,34 @@ function getMockUsers(): Record<string, UserProfile> {
       // fallback
     }
   }
-  // Default admin and demo user
+  // Default admin and demo user with 1 year plan
+  const now = new Date();
+  const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
   const initial: Record<string, UserProfile> = {
     admin: {
       phoneNumber: "admin",
       password: "admin",
       role: "admin",
       currentSessionToken: "",
-      lastLoginAt: new Date().toISOString(),
+      lastLoginAt: now.toISOString(),
       isActive: true,
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
     },
     "9876543210": {
       phoneNumber: "9876543210",
       password: "123",
       role: "user",
       currentSessionToken: "",
-      lastLoginAt: new Date().toISOString(),
+      lastLoginAt: now.toISOString(),
       isActive: true,
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
+      plan: {
+        status: "active",
+        startDate: now.toISOString(),
+        expiryDate: oneYearLater.toISOString(),
+        planName: "1 Year Plan",
+      },
     },
   };
   localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(initial));
@@ -207,7 +216,8 @@ export async function loginUser(
  */
 export function subscribeToUserSession(
   phoneNumber: string,
-  onForceLogout: (reason: string) => void
+  onForceLogout: (reason: string) => void,
+  onUserUpdate?: (user: UserProfile) => void
 ): Unsubscribe {
   if (db) {
     const userRef = doc(db, "users", phoneNumber);
@@ -231,6 +241,12 @@ export function subscribeToUserSession(
         // it means another device logged in!
         if (data.currentSessionToken && localToken && data.currentSessionToken !== localToken) {
           onForceLogout("You have been logged in on another device. Logging out from this device.");
+          return;
+        }
+
+        // Real-time plan or profile update
+        if (onUserUpdate) {
+          onUserUpdate(data);
         }
       },
       (err) => {
@@ -245,6 +261,8 @@ export function subscribeToUserSession(
       const localToken = getStoredSessionToken();
       if (user && localToken && user.currentSessionToken && user.currentSessionToken !== localToken) {
         onForceLogout("You have been logged in on another device. Logging out from this device.");
+      } else if (user && onUserUpdate) {
+        onUserUpdate(user);
       }
     }, 2000);
 
@@ -327,19 +345,23 @@ export async function adminGetAllUsers(): Promise<UserProfile[]> {
 }
 
 /**
- * Admin: Create a new user
+ * Admin: Create a new user with subscription plan
  */
 export async function adminCreateUser(
   phoneNumber: string,
   password: string,
-  role: "admin" | "user" = "user"
+  role: "admin" | "user" = "user",
+  planDays: number = 365
 ): Promise<UserProfile> {
   const phone = phoneNumber.trim();
   const pass = password.trim();
 
   if (!phone || !pass) {
-    throw new Error("Phone number and password are required.");
+    throw new Error("Username/Phone number and password are required.");
   }
+
+  const now = new Date();
+  const expiry = new Date(now.getTime() + planDays * 24 * 60 * 60 * 1000);
 
   const newUser: UserProfile = {
     phoneNumber: phone,
@@ -348,14 +370,23 @@ export async function adminCreateUser(
     currentSessionToken: "",
     lastLoginAt: "",
     isActive: true,
-    createdAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
+    plan:
+      role === "admin"
+        ? undefined
+        : {
+            status: "active",
+            startDate: now.toISOString(),
+            expiryDate: expiry.toISOString(),
+            planName: planDays >= 365 ? `${Math.round(planDays / 365)} Year Plan` : `${planDays} Days Plan`,
+          },
   };
 
   if (db) {
     const userRef = doc(db, "users", phone);
     const existing = await getDoc(userRef);
     if (existing.exists()) {
-      throw new Error(`User with phone ${phone} already exists.`);
+      throw new Error(`User "${phone}" already exists.`);
     }
 
     await setDoc(userRef, newUser);
@@ -363,12 +394,96 @@ export async function adminCreateUser(
   } else {
     const mockUsers = getMockUsers();
     if (mockUsers[phone]) {
-      throw new Error(`User with phone ${phone} already exists.`);
+      throw new Error(`User "${phone}" already exists.`);
     }
     mockUsers[phone] = newUser;
     saveMockUsers(mockUsers);
     return newUser;
   }
+}
+
+/**
+ * Admin: Extend user's plan by given number of days (default 365 = 1 year)
+ */
+export async function adminExtendUserPlan(
+  phoneNumber: string,
+  daysToAdd: number = 365
+): Promise<UserPlan> {
+  const now = new Date();
+
+  if (db) {
+    const userRef = doc(db, "users", phoneNumber);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) throw new Error("User does not exist.");
+
+    const userData = snap.data() as UserProfile;
+    let currentExpiry = userData.plan?.expiryDate ? new Date(userData.plan.expiryDate) : now;
+
+    // If currently expired, start extending from today; else add to remaining expiry
+    const baseDate = currentExpiry > now ? currentExpiry : now;
+    const newExpiry = new Date(baseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+    const updatedPlan: UserPlan = {
+      status: "active",
+      startDate: userData.plan?.startDate || now.toISOString(),
+      expiryDate: newExpiry.toISOString(),
+      planName: daysToAdd >= 365 ? `${Math.round(daysToAdd / 365)} Year Plan` : `${daysToAdd} Days Plan`,
+    };
+
+    await updateDoc(userRef, { plan: updatedPlan });
+    return updatedPlan;
+  } else {
+    const mockUsers = getMockUsers();
+    const user = mockUsers[phoneNumber];
+    if (!user) throw new Error("User does not exist.");
+
+    let currentExpiry = user.plan?.expiryDate ? new Date(user.plan.expiryDate) : now;
+    const baseDate = currentExpiry > now ? currentExpiry : now;
+    const newExpiry = new Date(baseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+    const updatedPlan: UserPlan = {
+      status: "active",
+      startDate: user.plan?.startDate || now.toISOString(),
+      expiryDate: newExpiry.toISOString(),
+      planName: daysToAdd >= 365 ? `${Math.round(daysToAdd / 365)} Year Plan` : `${daysToAdd} Days Plan`,
+    };
+
+    user.plan = updatedPlan;
+    saveMockUsers(mockUsers);
+    return updatedPlan;
+  }
+}
+
+/**
+ * Admin: Set exact custom expiry date for user
+ */
+export async function adminSetUserExpiryDate(
+  phoneNumber: string,
+  expiryDateISO: string
+): Promise<UserPlan> {
+  const newExpiry = new Date(expiryDateISO);
+  const now = new Date();
+  const isExpired = now > newExpiry;
+
+  const planUpdates: UserPlan = {
+    status: isExpired ? "expired" : "active",
+    startDate: now.toISOString(),
+    expiryDate: newExpiry.toISOString(),
+    planName: "Custom Plan",
+  };
+
+  if (db) {
+    const userRef = doc(db, "users", phoneNumber);
+    await updateDoc(userRef, { plan: planUpdates });
+  } else {
+    const mockUsers = getMockUsers();
+    if (mockUsers[phoneNumber]) {
+      mockUsers[phoneNumber].plan = planUpdates;
+      saveMockUsers(mockUsers);
+    }
+  }
+
+  return planUpdates;
 }
 
 /**

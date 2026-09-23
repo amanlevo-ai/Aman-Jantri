@@ -15,6 +15,8 @@ import {
   Copy,
   Check,
   Lock,
+  Calendar,
+  CalendarPlus,
 } from "lucide-react";
 import {
   adminGetAllUsers,
@@ -22,6 +24,7 @@ import {
   adminToggleUserStatus,
   adminResetUserPassword,
   adminDeleteUser,
+  adminExtendUserPlan,
 } from "../services/authService";
 import { UserProfile } from "../types";
 
@@ -38,6 +41,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   // New user form state
   const [newPhone, setNewPhone] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPlanDays, setNewPlanDays] = useState(365);
   const [isCreating, setIsCreating] = useState(false);
 
   // Reset password inline modal state
@@ -80,8 +84,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
 
     try {
       setIsCreating(true);
-      await adminCreateUser(newPhone.trim(), newPassword.trim());
-      setSuccess(`User "${newPhone.trim()}" created successfully with password "${newPassword.trim()}"!`);
+      await adminCreateUser(newPhone.trim(), newPassword.trim(), "user", newPlanDays);
+      setSuccess(`User "${newPhone.trim()}" created successfully with ${newPlanDays} days plan!`);
       setNewPhone("");
       setNewPassword("");
       await loadUsers();
@@ -90,6 +94,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
       setError(err?.message || "Failed to create user.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleExtendPlan = async (phone: string, days: number = 365) => {
+    try {
+      setError(null);
+      const updated = await adminExtendUserPlan(phone, days);
+      setSuccess(`User "${phone}" plan extended by 1 Year (valid till ${new Date(updated.expiryDate).toLocaleDateString()})!`);
+      await loadUsers();
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err: any) {
+      setError(err?.message || "Failed to extend plan.");
     }
   };
 
@@ -228,7 +244,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[11px] sm:text-xs text-blue-800 font-medium pl-1">
               <li>
-                Neeche <strong>Username / Mobile Number</strong> aur <strong>Password</strong> dalein.
+                Neeche <strong>Username / Mobile Number</strong>, <strong>Password</strong> aur <strong>Plan Validity</strong> select karein.
               </li>
               <li>
                 <strong>"+ Add User"</strong> button par click karein. Account turant ban jayega.
@@ -237,7 +253,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 User ko unka Username aur Password de dein. Vo apne mobile par login kar sakte hain.
               </li>
               <li>
-                <strong>Single Device Rule:</strong> Ek user ek waqt me sirf 1 phone par chalega. Agar vo doosre phone par login karega to purana phone apne aap logout ho jayega.
+                <strong>Single Device Rule:</strong> Ek user ek waqt me sirf 1 phone par chalega. Dusre phone par login karte hi purana phone logout ho jayega.
+              </li>
+              <li>
+                <strong>Per-Year Subscription Plan:</strong> Expiry date aate hi user ki app lock ho jayegi. Unhe renew karne ke liye unke naam ke aage green <strong>"+1 Year"</strong> button daba dein!
               </li>
               <li>
                 Kisi bhi user ka password badalne ke liye unke naam ke aage <strong>"Reset Pass"</strong> par click karein.
@@ -249,12 +268,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           <section className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs">
             <h3 className="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
               <UserPlus className="w-4 h-4 text-emerald-600" />
-              <span>Create New User (Naya User & Password Set Karein)</span>
+              <span>Create New User & Set Plan (Naya User & Validity Set Karein)</span>
             </h3>
 
             <form
               onSubmit={handleCreateUser}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end"
             >
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -280,6 +299,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                   placeholder="Enter password (e.g. 12345)"
                   className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Plan Duration:
+                </label>
+                <select
+                  value={newPlanDays}
+                  onChange={(e) => setNewPlanDays(Number(e.target.value))}
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a]"
+                >
+                  <option value={365}>1 Year (365 Days)</option>
+                  <option value={730}>2 Years (730 Days)</option>
+                  <option value={180}>6 Months (180 Days)</option>
+                  <option value={90}>3 Months (90 Days)</option>
+                  <option value={30}>1 Month (30 Days)</option>
+                </select>
               </div>
 
               <button
@@ -325,12 +361,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 {users.map((u) => {
                   const isResetting = resettingUserPhone === u.phoneNumber;
 
+                  const expiry = u.plan?.expiryDate ? new Date(u.plan.expiryDate) : null;
+                  const isExpired = u.role !== "admin" && (!expiry || new Date() > expiry);
+                  const daysRemaining = expiry ? Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
+
                   return (
                     <div
                       key={u.phoneNumber}
-                      className="p-3 sm:p-4 bg-white hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      className={`p-3 sm:p-4 bg-white transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-3 ${
+                        isExpired ? "bg-red-50/20 border-l-4 border-l-red-500" : "hover:bg-slate-50/70"
+                      }`}
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm text-gray-900 font-mono">
                             {u.phoneNumber}
@@ -363,6 +405,31 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                               </>
                             )}
                           </span>
+
+                          {/* Subscription Plan Badge */}
+                          {u.role !== "admin" ? (
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+                                isExpired
+                                  ? "bg-red-100 text-red-800 border-red-300"
+                                  : daysRemaining <= 15
+                                  ? "bg-amber-100 text-amber-900 border-amber-300"
+                                  : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                              }`}
+                            >
+                              <Calendar className="w-3 h-3" />
+                              <span>
+                                {isExpired
+                                  ? `PLAN EXPIRED (${expiry ? expiry.toLocaleDateString() : "No Plan"})`
+                                  : `Valid till: ${expiry?.toLocaleDateString()} (${daysRemaining} days left)`}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              <span>Lifetime Admin</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="text-[11px] text-gray-600 flex items-center gap-2 flex-wrap">
@@ -394,6 +461,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                        {/* Extend Plan +1 Year button */}
+                        {u.role !== "admin" && (
+                          <button
+                            type="button"
+                            onClick={() => handleExtendPlan(u.phoneNumber, 365)}
+                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                            title="Extend user's plan by 1 year (365 days)"
+                          >
+                            <CalendarPlus className="w-3.5 h-3.5" />
+                            <span>+1 Year Plan</span>
+                          </button>
+                        )}
+
                         {u.role !== "admin" && (
                           <button
                             type="button"
