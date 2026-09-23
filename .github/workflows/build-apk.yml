@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.7.1
-          name: Aman Jantri v3.7.1 (High-Demand AI Traffic Resilience & Multi-Model Fallback)
-          body: "Direct Download APK for Aman Jantri (Android) - Added multi-tier model fallback chain (Gemini 3.6 Flash, 3.5 Flash, 3.1 Flash Lite, Flash Latest) with auto-retry to prevent high demand spike errors, native Camera click, and 11th Total column."
+          tag_name: v3.7.2
+          name: Aman Jantri v3.7.2 (Parchi Amount Cap & Clean Total Column)
+          body: "Direct Download APK for Aman Jantri (Android) - Enforces top box amount cap so no house in any generated parchi ever exceeds the entered amount, removes R1/R2 badges from Total column (only clean amount), and provides 4-tier AI Vision OCR with native Camera."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

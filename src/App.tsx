@@ -906,6 +906,12 @@ export default function App() {
       }
     }
 
+    // Top box amount cap (in Jantri tab, no house in any parchi can exceed this amount!)
+    const topBoxAmount = parseFloat(amount);
+    const maxHouseCap = (!isNaN(topBoxAmount) && topBoxAmount > 0)
+      ? topBoxAmount
+      : (userTab === 'custom' || userTab === 'scan' ? 100000 : 500);
+
     const parchis: ParchiItem[] = [];
     const lastSeenParchi = new Map<string, number>();
     const appearanceCount = new Map<string, number>();
@@ -916,40 +922,42 @@ export default function App() {
 
     for (let p = 0; p < count; p++) {
       const thisParchiTotal = parchiTotals[p];
+      // Ensure targetHousesCount is at least enough so no house exceeds maxHouseCap
+      const minHousesNeeded = Math.ceil(thisParchiTotal / maxHouseCap);
       let targetHousesCount = smallAmountsInResult
         ? Math.floor(Math.random() * 13) + 80
         : Math.floor(Math.random() * 9) + 60;
+      targetHousesCount = Math.max(targetHousesCount, minHousesNeeded);
       targetHousesCount = Math.min(targetHousesCount, availableNumbers.length);
 
       let houseStep = 50;
+      if (maxHouseCap <= 50) houseStep = 10;
+      if (maxHouseCap <= 10) houseStep = 1;
+
       if (smallAmountsInResult) {
-        if (thisParchiTotal >= targetHousesCount * 25) {
+        if (thisParchiTotal >= targetHousesCount * 25 && maxHouseCap >= 25) {
           houseStep = 25;
-        } else if (thisParchiTotal >= targetHousesCount * 10) {
+        } else if (thisParchiTotal >= targetHousesCount * 10 && maxHouseCap >= 10) {
           houseStep = 10;
-        } else if (thisParchiTotal >= targetHousesCount * 5) {
+        } else if (thisParchiTotal >= targetHousesCount * 5 && maxHouseCap >= 5) {
           houseStep = 5;
         } else {
           houseStep = Math.max(1, Math.floor(thisParchiTotal / targetHousesCount));
         }
       } else {
-        if (thisParchiTotal >= targetHousesCount * 50) {
+        if (thisParchiTotal >= targetHousesCount * 50 && maxHouseCap >= 50) {
           houseStep = 50;
-        } else if (thisParchiTotal >= targetHousesCount * 25) {
+        } else if (thisParchiTotal >= targetHousesCount * 25 && maxHouseCap >= 25) {
           houseStep = 25;
-        } else if (thisParchiTotal >= targetHousesCount * 10) {
+        } else if (thisParchiTotal >= targetHousesCount * 10 && maxHouseCap >= 10) {
           houseStep = 10;
-        } else if (thisParchiTotal >= targetHousesCount * 5) {
+        } else if (thisParchiTotal >= targetHousesCount * 5 && maxHouseCap >= 5) {
           houseStep = 5;
         } else {
           houseStep = Math.max(1, Math.floor(thisParchiTotal / targetHousesCount));
         }
       }
-
-      const maxPossibleHouses = Math.min(100, Math.floor(thisParchiTotal / houseStep));
-      if (targetHousesCount > maxPossibleHouses) {
-        targetHousesCount = Math.max(1, maxPossibleHouses);
-      }
+      houseStep = Math.min(houseStep, maxHouseCap);
 
       const scoreNumber = (numStr: string): number => {
         const last = lastSeenParchi.get(numStr) ?? -1;
@@ -973,32 +981,59 @@ export default function App() {
         numStr,
         score: scoreNumber(numStr),
       }));
-
       rankedNumbers.sort((a, b) => b.score - a.score);
-      const selectedNumbers = rankedNumbers.slice(0, targetHousesCount).map(r => r.numStr);
 
-      selectedNumbers.forEach(numStr => {
-        lastSeenParchi.set(numStr, p);
-        appearanceCount.set(numStr, (appearanceCount.get(numStr) ?? 0) + 1);
-      });
+      const initialStep = Math.min(houseStep, maxHouseCap);
+      const houseAmounts: number[] = new Array(targetHousesCount).fill(initialStep);
+      let remaining = thisParchiTotal - (targetHousesCount * initialStep);
 
-      const houseAmounts: number[] = new Array(targetHousesCount).fill(houseStep);
-      let remaining = thisParchiTotal - (targetHousesCount * houseStep);
+      let loopLimit = 20000;
+      while (remaining > 0 && loopLimit-- > 0) {
+        const eligibleIndices: number[] = [];
+        for (let i = 0; i < targetHousesCount; i++) {
+          if (houseAmounts[i] < maxHouseCap) {
+            eligibleIndices.push(i);
+          }
+        }
 
-      while (remaining >= houseStep) {
-        const rIdx = Math.floor(Math.random() * targetHousesCount);
+        if (eligibleIndices.length === 0) {
+          if (targetHousesCount < availableNumbers.length) {
+            targetHousesCount++;
+            houseAmounts.push(0);
+            eligibleIndices.push(targetHousesCount - 1);
+          } else {
+            break;
+          }
+        }
+
+        const rIdx = eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
+        const maxAdd = maxHouseCap - houseAmounts[rIdx];
         const chunkSteps = (smallAmountsInResult || thisParchiTotal <= 1000)
           ? 1
-          : Math.min(Math.floor(remaining / houseStep), Math.floor(Math.random() * 2) + 1);
-        const addAmount = chunkSteps * houseStep;
+          : Math.min(Math.floor(remaining / houseStep) || 1, Math.floor(Math.random() * 2) + 1);
+        const desiredAdd = chunkSteps * houseStep;
+        const addAmount = Math.min(remaining, Math.min(desiredAdd, maxAdd));
+
         houseAmounts[rIdx] += addAmount;
         remaining -= addAmount;
       }
 
       if (remaining > 0) {
-        const rIdx = Math.floor(Math.random() * targetHousesCount);
-        houseAmounts[rIdx] += remaining;
+        for (let i = 0; i < targetHousesCount && remaining > 0; i++) {
+          const room = maxHouseCap - houseAmounts[i];
+          if (room > 0) {
+            const add = Math.min(remaining, room);
+            houseAmounts[i] += add;
+            remaining -= add;
+          }
+        }
       }
+
+      const selectedNumbers = rankedNumbers.slice(0, targetHousesCount).map(r => r.numStr);
+      selectedNumbers.forEach(numStr => {
+        lastSeenParchi.set(numStr, p);
+        appearanceCount.set(numStr, (appearanceCount.get(numStr) ?? 0) + 1);
+      });
 
       const houses: ParchiHouse[] = selectedNumbers.map((numStr, hIdx) => ({
         number: numStr,
@@ -1977,24 +2012,17 @@ function renderJantriToCanvas(
                 );
               });
 
-              // 11th Column Cell: Row Total (R1, R2... R10)
+              // 11th Column Cell: Row Total (Only amount, NO R1, R2 badges)
               const totalElement = (
                 <div
                   key={`row-total-${rowIndex}`}
                   className={`border-b border-amber-200/90 ${
                     rowIndex === 9 ? 'border-b-0' : ''
-                  } bg-amber-50/90 hover:bg-amber-100/70 transition-colors p-[1px] sm:p-1.5 flex flex-col justify-between items-center`}
+                  } bg-amber-50/90 hover:bg-amber-100/70 transition-colors p-[1px] sm:p-1.5 flex items-center justify-center`}
                 >
-                  <div className="flex items-center justify-center w-full">
-                    <span className="text-[7.5px] sm:text-[9px] md:text-[10px] font-bold text-amber-800 bg-amber-200/80 px-1 py-0.2 rounded-xs select-none shadow-2xs">
-                      R{rowIndex + 1}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 sm:mt-1 w-full text-center">
-                    <span className={`font-mono font-black text-[10px] sm:text-xs md:text-sm truncate block ${rowTotal > 0 ? 'text-amber-950' : 'text-gray-300'}`}>
-                      {rowTotal > 0 ? rowTotal.toLocaleString('en-IN') : '-'}
-                    </span>
-                  </div>
+                  <span className={`font-mono font-black text-[11px] sm:text-xs md:text-sm truncate block text-center ${rowTotal > 0 ? 'text-amber-950' : 'text-gray-300'}`}>
+                    {rowTotal > 0 ? rowTotal.toLocaleString('en-IN') : '-'}
+                  </span>
                 </div>
               );
 
