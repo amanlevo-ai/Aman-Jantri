@@ -502,7 +502,7 @@ export default function App() {
     return parseFastEntryText(customEntryText);
   }, [customEntryText]);
 
-  const isCustomMode = userTab === 'custom' && customEntryText.trim().length > 0;
+  const isCustomMode = userTab === 'custom';
   const [jantriViewMode, setJantriViewMode] = useState<'tabs' | 'all'>('tabs');
   const [activeJantriIndex, setActiveJantriIndex] = useState<number>(0);
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
@@ -654,7 +654,11 @@ export default function App() {
     }
 
     if (grandTotal <= 0) {
-      setStatusMessage('Please enter an amount or text entries (e.g. 500 or 01-25)');
+      setStatusMessage(
+        userTab === 'custom'
+          ? 'Please enter numbers in Parchi text box (e.g. 01-25, 02-50)'
+          : 'Please enter an amount to fill jantri (e.g. 500)'
+      );
       setTimeout(() => setStatusMessage(null), 3500);
       return null;
     }
@@ -706,14 +710,30 @@ export default function App() {
     }
 
     const availableNumbers: string[] = [];
-    for (let i = 1; i <= 100; i++) {
-      if (gridMode === '00-99') {
-        availableNumbers.push(i === 100 ? '00' : (i < 10 ? `0${i}` : i.toString()));
-      } else if (gridMode === '0-99') {
-        const val = i - 1;
-        availableNumbers.push(val < 10 ? `0${val}` : val.toString());
-      } else {
-        availableNumbers.push(i < 10 ? `0${i}` : i.toString());
+    if (userTab === 'custom' && parsedCustomData.filledCount > 0) {
+      Object.keys(parsedCustomData.amountsMap).forEach((k) => {
+        const num = parseInt(k, 10);
+        let label = '';
+        if (gridMode === '00-99') {
+          label = num === 100 ? '00' : (num < 10 ? `0${num}` : num.toString());
+        } else if (gridMode === '0-99') {
+          const val = num - 1;
+          label = val < 10 ? `0${val}` : val.toString();
+        } else {
+          label = num < 10 ? `0${num}` : num.toString();
+        }
+        availableNumbers.push(label);
+      });
+    } else {
+      for (let i = 1; i <= 100; i++) {
+        if (gridMode === '00-99') {
+          availableNumbers.push(i === 100 ? '00' : (i < 10 ? `0${i}` : i.toString()));
+        } else if (gridMode === '0-99') {
+          const val = i - 1;
+          availableNumbers.push(val < 10 ? `0${val}` : val.toString());
+        } else {
+          availableNumbers.push(i < 10 ? `0${i}` : i.toString());
+        }
       }
     }
 
@@ -730,6 +750,7 @@ export default function App() {
       let targetHousesCount = smallAmountsInResult
         ? Math.floor(Math.random() * 13) + 80
         : Math.floor(Math.random() * 9) + 60;
+      targetHousesCount = Math.min(targetHousesCount, availableNumbers.length);
 
       let houseStep = 50;
       if (smallAmountsInResult) {
