@@ -10,6 +10,11 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Info,
+  Shield,
+  Copy,
+  Check,
+  Lock,
 } from "lucide-react";
 import {
   adminGetAllUsers,
@@ -39,6 +44,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   const [resettingUserPhone, setResettingUserPhone] = useState<string | null>(null);
   const [resetNewPass, setResetNewPass] = useState("");
 
+  // Change admin password state
+  const [adminNewPass, setAdminNewPass] = useState("");
+  const [isUpdatingAdminPass, setIsUpdatingAdminPass] = useState(false);
+
+  // Copied feedback state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const loadUsers = async () => {
     try {
       setIsLoading(true);
@@ -62,18 +74,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     setSuccess(null);
 
     if (!newPhone.trim() || !newPassword.trim()) {
-      setError("Please enter both phone number and password.");
+      setError("Please enter both Username / Mobile Number and Password.");
       return;
     }
 
     try {
       setIsCreating(true);
-      await adminCreateUser(newPhone, newPassword);
-      setSuccess(`User ${newPhone} created successfully!`);
+      await adminCreateUser(newPhone.trim(), newPassword.trim());
+      setSuccess(`User "${newPhone.trim()}" created successfully with password "${newPassword.trim()}"!`);
       setNewPhone("");
       setNewPassword("");
       await loadUsers();
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
       setError(err?.message || "Failed to create user.");
     } finally {
@@ -92,38 +104,66 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   };
 
   const handleResetPassword = async (phone: string) => {
-    if (!resetNewPass.trim() || resetNewPass.length < 3) {
+    if (!resetNewPass.trim() || resetNewPass.trim().length < 3) {
       setError("New password must be at least 3 characters.");
       return;
     }
 
     try {
       setError(null);
-      await adminResetUserPassword(phone, resetNewPass);
-      setSuccess(`Password for ${phone} reset successfully!`);
+      await adminResetUserPassword(phone, resetNewPass.trim());
+      setSuccess(`Password for ${phone} updated to "${resetNewPass.trim()}"!`);
       setResettingUserPhone(null);
       setResetNewPass("");
       await loadUsers();
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
       setError(err?.message || "Failed to reset password.");
     }
   };
 
+  const handleUpdateAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminNewPass.trim() || adminNewPass.trim().length < 3) {
+      setError("Admin password must be at least 3 characters.");
+      return;
+    }
+
+    try {
+      setIsUpdatingAdminPass(true);
+      setError(null);
+      await adminResetUserPassword("admin", adminNewPass.trim());
+      setSuccess("Admin password updated successfully!");
+      setAdminNewPass("");
+      await loadUsers();
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err: any) {
+      setError(err?.message || "Failed to update admin password.");
+    } finally {
+      setIsUpdatingAdminPass(false);
+    }
+  };
+
   const handleDeleteUser = async (phone: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete user ${phone}?`)) {
+    if (!window.confirm(`Are you sure you want to permanently delete user "${phone}"?`)) {
       return;
     }
 
     try {
       setError(null);
       await adminDeleteUser(phone);
-      setSuccess(`User ${phone} deleted.`);
+      setSuccess(`User "${phone}" deleted.`);
       await loadUsers();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err?.message || "Failed to delete user.");
     }
+  };
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -133,14 +173,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
         <div className="bg-[#21324a] text-white px-4 sm:px-6 py-3.5 flex items-center justify-between border-b border-slate-700 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-xs text-slate-900 font-bold">
-              <Users className="w-4 h-4" />
+              <Shield className="w-4 h-4 text-slate-950" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-amber-400">
                 Admin Control Panel
               </h2>
               <p className="text-[11px] text-slate-300">
-                Manage accounts & single device sessions
+                Set & manage usernames, passwords & single device access
               </p>
             </div>
           </div>
@@ -180,11 +220,36 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
             </div>
           )}
 
+          {/* Quick Guide / How-To Banner */}
+          <section className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 space-y-1.5 shadow-2xs">
+            <div className="font-bold flex items-center gap-1.5 text-blue-950 text-xs sm:text-sm">
+              <Info className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>How to set User Name & Password (Kaise Banayein):</span>
+            </div>
+            <ol className="list-decimal list-inside space-y-1 text-[11px] sm:text-xs text-blue-800 font-medium pl-1">
+              <li>
+                Neeche <strong>Username / Mobile Number</strong> aur <strong>Password</strong> dalein.
+              </li>
+              <li>
+                <strong>"+ Add User"</strong> button par click karein. Account turant ban jayega.
+              </li>
+              <li>
+                User ko unka Username aur Password de dein. Vo apne mobile par login kar sakte hain.
+              </li>
+              <li>
+                <strong>Single Device Rule:</strong> Ek user ek waqt me sirf 1 phone par chalega. Agar vo doosre phone par login karega to purana phone apne aap logout ho jayega.
+              </li>
+              <li>
+                Kisi bhi user ka password badalne ke liye unke naam ke aage <strong>"Reset Pass"</strong> par click karein.
+              </li>
+            </ol>
+          </section>
+
           {/* Create User Form Section */}
           <section className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs">
             <h3 className="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
               <UserPlus className="w-4 h-4 text-emerald-600" />
-              <span>Create New User Account</span>
+              <span>Create New User (Naya User & Password Set Karein)</span>
             </h3>
 
             <form
@@ -193,26 +258,26 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
             >
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Phone Number:
+                  Username / Mobile Number:
                 </label>
                 <input
                   type="text"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="e.g. 9876543210"
+                  placeholder="e.g. rohit or 9876543210"
                   className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a]"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Initial Password:
+                  Password:
                 </label>
                 <input
                   type="text"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder="Enter password (e.g. 12345)"
                   className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a]"
                 />
               </div>
@@ -230,7 +295,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4" />
-                    <span>Add User</span>
+                    <span>+ Add User</span>
                   </>
                 )}
               </button>
@@ -240,8 +305,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           {/* User List Section */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-bold text-gray-800">
-                Registered Users ({users.length})
+              <h3 className="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span>All Users List ({users.length})</span>
               </h3>
             </div>
 
@@ -299,11 +365,28 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                           </span>
                         </div>
 
-                        <div className="text-[11px] text-gray-500">
-                          <span>Password: <strong className="font-mono text-gray-800">{u.password}</strong></span>
+                        <div className="text-[11px] text-gray-600 flex items-center gap-2 flex-wrap">
+                          <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                            Password:{" "}
+                            <strong className="font-mono text-gray-900 select-all">
+                              {u.password}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(u.password, u.phoneNumber)}
+                              className="text-gray-400 hover:text-gray-700 p-0.5 cursor-pointer ml-1"
+                              title="Copy password"
+                            >
+                              {copiedId === u.phoneNumber ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </span>
                           {u.lastLoginAt && (
-                            <span className="ml-3 text-gray-400">
-                              Last login: {new Date(u.lastLoginAt).toLocaleString()}
+                            <span className="text-gray-400 text-[10px]">
+                              Last login: {new Date(u.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                         </div>
@@ -362,13 +445,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                             onChange={(e) => setResetNewPass(e.target.value)}
                             placeholder="Type new password"
                             className="flex-1 bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold"
+                            autoFocus
                           />
                           <button
                             type="button"
                             onClick={() => handleResetPassword(u.phoneNumber)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-xs"
                           >
-                            Save
+                            Save Password
                           </button>
                         </div>
                       )}
@@ -377,6 +461,33 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 })}
               </div>
             )}
+          </section>
+
+          {/* Change Admin Own Password Section */}
+          <section className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 shadow-2xs">
+            <h3 className="text-xs sm:text-sm font-bold text-amber-950 flex items-center gap-2 mb-2">
+              <Lock className="w-4 h-4 text-amber-700" />
+              <span>Change Admin Account Password</span>
+            </h3>
+            <p className="text-[11px] text-amber-800 mb-3">
+              Default password is <strong>admin</strong>. You can change it here to protect your Admin Panel.
+            </p>
+            <form onSubmit={handleUpdateAdminPassword} className="flex items-center gap-2 max-w-md">
+              <input
+                type="text"
+                value={adminNewPass}
+                onChange={(e) => setAdminNewPass(e.target.value)}
+                placeholder="Enter new admin password"
+                className="flex-1 bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <button
+                type="submit"
+                disabled={isUpdatingAdminPass}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-1.5 px-3 rounded-lg cursor-pointer transition-colors shadow-xs shrink-0 disabled:opacity-50"
+              >
+                {isUpdatingAdminPass ? "Saving..." : "Update Admin Pass"}
+              </button>
+            </form>
           </section>
         </div>
       </div>

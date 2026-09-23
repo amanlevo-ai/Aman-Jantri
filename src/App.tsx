@@ -1815,6 +1815,9 @@ function renderJantriToCanvas(
           onLoginSuccess={(user) => {
             setCurrentUser(user);
             setForceLogoutNotice(null);
+            if (user.role === 'admin') {
+              setShowAdminPanel(true);
+            }
           }}
         />
       )}

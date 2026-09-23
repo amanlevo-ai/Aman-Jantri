@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v2.3.1
-          name: Aman Jantri v2.3.1 (Clean Login Screen)
-          body: "Direct Download APK for Aman Jantri (Android) - Cleaned Login Page by removing single device info text below login form."
+          tag_name: v2.4.0
+          name: Aman Jantri v2.4.0 (Admin Control Panel & User Management)
+          body: "Direct Download APK for Aman Jantri (Android) - Added Admin Control Panel tab on login, username and password creation, reset password, user status management, and single device protection."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
