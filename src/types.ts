@@ -19,3 +19,20 @@ export interface ParchiItem {
   houses: ParchiHouse[];
   totalAmount: number;
 }
+
+export interface UserProfile {
+  phoneNumber: string;
+  password: string;
+  role: 'admin' | 'user';
+  currentSessionToken: string;
+  lastLoginAt: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AuthState {
+  user: UserProfile | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+

@@ -23,7 +23,22 @@ import {
   Download,
   Loader2,
   ArrowLeft,
+  LogOut,
+  Key,
+  Shield,
+  User,
+  AlertCircle,
 } from 'lucide-react';
+
+import { UserProfile } from './types';
+import {
+  getStoredUser,
+  logoutUser,
+  subscribeToUserSession,
+} from './services/authService';
+import { LoginModal } from './components/LoginModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
 
 interface JantriTheme {
   name: string;
@@ -400,6 +415,30 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [generatedParchis, setGeneratedParchis] = useState<ParchiItem[]>([]);
   const [copiedParchiId, setCopiedParchiId] = useState<number | null>(null);
+
+  // Authentication & Session States
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUser());
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [forceLogoutNotice, setForceLogoutNotice] = useState<string | null>(null);
+
+  // Real-time Single Device Session Enforcement Effect
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const unsubscribe = subscribeToUserSession(currentUser.phoneNumber, (reason) => {
+      logoutUser();
+      setCurrentUser(null);
+      setShowChangePassword(false);
+      setShowAdminPanel(false);
+      setIsJantriModalOpen(false);
+      setForceLogoutNotice(reason);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser]);
 
   // Fast Entry Text Box state
   const [customEntryText, setCustomEntryText] = useState<string>('');
@@ -1174,7 +1213,7 @@ function renderJantriToCanvas(
       )}
 
       {/* Top App Header */}
-      <header id="main-header" className="bg-[#21324a] text-white px-3 sm:px-4 py-2 sm:py-2.5 shadow-md flex items-center justify-between sticky top-0 z-30">
+      <header id="main-header" className="bg-[#21324a] text-white px-3 sm:px-4 py-2 sm:py-2.5 shadow-md flex items-center justify-between sticky top-0 z-30 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-xs text-slate-900 font-black text-xs select-none">
             A
@@ -1184,6 +1223,58 @@ function renderJantriToCanvas(
           </h1>
         </div>
 
+        {currentUser && (
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
+            {/* User phone & role */}
+            <div className="hidden xs:flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+              <User className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-mono font-semibold text-slate-200">{currentUser.phoneNumber}</span>
+              {currentUser.role === 'admin' && (
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/40">
+                  ADMIN
+                </span>
+              )}
+            </div>
+
+            {/* Admin Panel button (only for admin) */}
+            {currentUser.role === 'admin' && (
+              <button
+                type="button"
+                onClick={() => setShowAdminPanel(true)}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                title="Admin Control Panel"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Admin Panel</span>
+              </button>
+            )}
+
+            {/* Change Password button */}
+            <button
+              type="button"
+              onClick={() => setShowChangePassword(true)}
+              className="bg-slate-700/80 hover:bg-slate-700 text-slate-200 text-xs px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+              title="Change Password"
+            >
+              <Key className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Password</span>
+            </button>
+
+            {/* Logout button */}
+            <button
+              type="button"
+              onClick={() => {
+                logoutUser();
+                setCurrentUser(null);
+              }}
+              className="bg-red-600/80 hover:bg-red-600 text-white text-xs px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area - Full width responsive, strictly no horizontal scroll */}
@@ -1717,6 +1808,54 @@ function renderJantriToCanvas(
           </div>
         )}
       </main>
+
+      {/* Login Screen Modal if not authenticated */}
+      {!currentUser && (
+        <LoginModal
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            setForceLogoutNotice(null);
+          }}
+        />
+      )}
+
+      {/* Force Logout Notice Modal */}
+      {forceLogoutNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5 text-center space-y-4 border border-red-200 animate-in zoom-in-95">
+            <div className="w-12 h-12 mx-auto rounded-full bg-red-100 flex items-center justify-center text-red-600">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Session Expired</h3>
+              <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">{forceLogoutNotice}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForceLogoutNotice(null)}
+              className="w-full bg-[#21324a] hover:bg-[#2c4263] text-amber-400 font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors shadow-sm"
+            >
+              Log In Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePassword && currentUser && (
+        <ChangePasswordModal
+          user={currentUser}
+          onClose={() => setShowChangePassword(false)}
+          onSuccess={() => {
+            // Password changed
+          }}
+        />
+      )}
+
+      {/* Admin Control Panel Modal */}
+      {showAdminPanel && currentUser?.role === 'admin' && (
+        <AdminPanelModal onClose={() => setShowAdminPanel(false)} />
+      )}
     </div>
   );
 }
