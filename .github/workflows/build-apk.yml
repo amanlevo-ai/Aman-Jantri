@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.5.0
-          name: Aman Jantri v3.5.0 (Live Firebase Cloud Integration & Cross-Device Sync)
-          body: "Direct Download APK for Aman Jantri (Android) - Fully connected to Firebase project 'aman-jantri' with real-time multi-device user and plan synchronization."
+          tag_name: v3.6.0
+          name: Aman Jantri v3.6.0 (Firebase Realtime Database & AI Vision Scanner)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring Firebase Realtime Database multi-device synchronization, secure cloud Gemini AI Vision Parchi/Jantri scanner, and zero user-side API exposure."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

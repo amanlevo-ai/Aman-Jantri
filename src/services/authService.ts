@@ -1,30 +1,30 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  getDocs,
-  onSnapshot,
-  Unsubscribe,
-} from "firebase/firestore";
+  getDatabase,
+  ref,
+  get,
+  set,
+  update,
+  remove,
+  onValue,
+  off,
+} from "firebase/database";
 import { firebaseConfig, isFirebaseConfigured } from "../firebaseConfig";
 import { UserProfile, UserPlan } from "../types";
 
 const LOCAL_STORAGE_USER_KEY = "aman_jantri_auth_user";
 const LOCAL_STORAGE_TOKEN_KEY = "aman_jantri_session_token";
 
-// Initialize Firebase App & Firestore if configured
+// Initialize Firebase App & Realtime Database if configured
 const app = isFirebaseConfigured()
   ? getApps().length === 0
     ? initializeApp(firebaseConfig)
     : getApp()
   : null;
 
-export const db = app ? getFirestore(app) : null;
+export const rtdb = app ? getDatabase(app) : null;
+// Export db as alias for backwards compatibility
+export const db = rtdb;
 
 // Generate unique session token
 export function generateSessionToken(): string {
@@ -34,7 +34,7 @@ export function generateSessionToken(): string {
   return "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 }
 
-// Local mock storage for offline / before-Firebase configuration testing
+// Local mock storage for offline fallback
 const MOCK_STORAGE_KEY = "aman_jantri_mock_users_db";
 
 function getMockUsers(): Record<string, UserProfile> {
@@ -46,7 +46,6 @@ function getMockUsers(): Record<string, UserProfile> {
       // fallback
     }
   }
-  // Default admin and demo user with 1 year plan
   const now = new Date();
   const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
@@ -85,15 +84,15 @@ function saveMockUsers(users: Record<string, UserProfile>) {
 }
 
 /**
- * Initialize default Admin in Firestore if not already present
+ * Initialize default Admin in Realtime Database if not already present
  */
 export async function initializeDefaultAdmin(): Promise<void> {
-  if (!db) return;
+  if (!rtdb) return;
   try {
-    const adminRef = doc(db, "users", "admin");
-    const adminSnap = await getDoc(adminRef);
+    const adminRef = ref(rtdb, "users/admin");
+    const adminSnap = await get(adminRef);
     if (!adminSnap.exists()) {
-      await setDoc(adminRef, {
+      await set(adminRef, {
         phoneNumber: "admin",
         password: "admin",
         role: "admin",
@@ -102,10 +101,10 @@ export async function initializeDefaultAdmin(): Promise<void> {
         isActive: true,
         createdAt: new Date().toISOString(),
       });
-      console.log("Default admin account created in Firestore: admin / admin");
+      console.log("Default admin account created in Realtime Database: admin / admin");
     }
   } catch (err) {
-    console.warn("Could not check/create default admin in Firestore:", err);
+    console.warn("Could not check/create default admin in RTDB:", err);
   }
 }
 
@@ -145,16 +144,16 @@ export async function loginUser(
 
   const sessionToken = generateSessionToken();
 
-  if (db) {
+  if (rtdb) {
     await initializeDefaultAdmin();
-    const userRef = doc(db, "users", phone);
-    const userSnap = await getDoc(userRef);
+    const userRef = ref(rtdb, `users/${phone}`);
+    const userSnap = await get(userRef);
 
     if (!userSnap.exists()) {
       throw new Error("Account not found. Contact administrator to create your account.");
     }
 
-    const userData = userSnap.data() as UserProfile;
+    const userData = userSnap.val() as UserProfile;
 
     if (!userData.isActive) {
       throw new Error("This account is currently deactivated. Please contact admin.");
@@ -164,13 +163,13 @@ export async function loginUser(
       throw new Error("Incorrect password. Please try again.");
     }
 
-    // Update Firestore with new session token (this will invalidate any other active device session)
+    // Update RTDB with new session token (invalidates other active device sessions)
     const updatedFields = {
       currentSessionToken: sessionToken,
       lastLoginAt: new Date().toISOString(),
     };
 
-    await updateDoc(userRef, updatedFields);
+    await update(userRef, updatedFields);
 
     const fullProfile: UserProfile = {
       ...userData,
@@ -211,50 +210,46 @@ export async function loginUser(
 
 /**
  * Real-time Single Device Session Listener
- * If currentSessionToken on Firestore changes (e.g. logged in on another device),
+ * If currentSessionToken in RTDB changes (e.g. logged in on another device),
  * onForceLogout is triggered immediately!
  */
 export function subscribeToUserSession(
   phoneNumber: string,
   onForceLogout: (reason: string) => void,
   onUserUpdate?: (user: UserProfile) => void
-): Unsubscribe {
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    return onSnapshot(
-      userRef,
-      (docSnap) => {
-        if (!docSnap.exists()) {
-          onForceLogout("Your account no longer exists.");
-          return;
-        }
-        const data = docSnap.data() as UserProfile;
-        const localToken = getStoredSessionToken();
-
-        // Check if account was deactivated by admin
-        if (!data.isActive) {
-          onForceLogout("Your account has been deactivated by administrator.");
-          return;
-        }
-
-        // Strict Single Device Rule: If token in Firestore is different from our local token,
-        // it means another device logged in!
-        if (data.currentSessionToken && localToken && data.currentSessionToken !== localToken) {
-          onForceLogout("You have been logged in on another device. Logging out from this device.");
-          return;
-        }
-
-        // Real-time plan or profile update
-        if (onUserUpdate) {
-          onUserUpdate(data);
-        }
-      },
-      (err) => {
-        console.warn("Firestore session snapshot error:", err);
+): () => void {
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
+    const callback = (snapshot: any) => {
+      if (!snapshot.exists()) {
+        onForceLogout("Your account no longer exists.");
+        return;
       }
-    );
+      const data = snapshot.val() as UserProfile;
+      const localToken = getStoredSessionToken();
+
+      // Check if account was deactivated by admin
+      if (!data.isActive) {
+        onForceLogout("Your account has been deactivated by administrator.");
+        return;
+      }
+
+      // Strict Single Device Rule:
+      if (data.currentSessionToken && localToken && data.currentSessionToken !== localToken) {
+        onForceLogout("You have been logged in on another device. Logging out from this device.");
+        return;
+      }
+
+      // Real-time plan or profile update
+      if (onUserUpdate) {
+        onUserUpdate(data);
+      }
+    };
+
+    onValue(userRef, callback);
+    return () => off(userRef, "value", callback);
   } else {
-    // For local mock testing, check periodically
+    // For local mock testing
     const interval = setInterval(() => {
       const mockUsers = getMockUsers();
       const user = mockUsers[phoneNumber];
@@ -290,22 +285,22 @@ export async function changeUserPassword(
     throw new Error("New password must be at least 3 characters.");
   }
 
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    const snap = await getDoc(userRef);
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
+    const snap = await get(userRef);
     if (!snap.exists()) throw new Error("User does not exist.");
 
-    const data = snap.data() as UserProfile;
+    const data = snap.val() as UserProfile;
     if (data.password !== oldPass) {
       throw new Error("Old password does not match.");
     }
 
-    await updateDoc(userRef, { password: newPass });
+    await update(userRef, { password: newPass.trim() });
 
     // Update local stored user
     const local = getStoredUser();
     if (local) {
-      local.password = newPass;
+      local.password = newPass.trim();
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(local));
     }
   } else {
@@ -314,12 +309,12 @@ export async function changeUserPassword(
     if (!user) throw new Error("User does not exist.");
     if (user.password !== oldPass) throw new Error("Old password does not match.");
 
-    user.password = newPass;
+    user.password = newPass.trim();
     saveMockUsers(mockUsers);
 
     const local = getStoredUser();
     if (local) {
-      local.password = newPass;
+      local.password = newPass.trim();
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(local));
     }
   }
@@ -329,13 +324,16 @@ export async function changeUserPassword(
  * Admin: Get all users
  */
 export async function adminGetAllUsers(): Promise<UserProfile[]> {
-  if (db) {
-    const usersCol = collection(db, "users");
-    const snap = await getDocs(usersCol);
-    const list: UserProfile[] = [];
-    snap.forEach((docItem) => {
-      list.push(docItem.data() as UserProfile);
-    });
+  if (rtdb) {
+    await initializeDefaultAdmin();
+    const usersRef = ref(rtdb, "users");
+    const snap = await get(usersRef);
+    if (!snap.exists()) return [];
+
+    const obj = snap.val() as Record<string, UserProfile>;
+    const list: UserProfile[] = Object.values(obj).filter(
+      (u): u is UserProfile => Boolean(u && u.phoneNumber)
+    );
     // Sort with admin first, then recent
     return list.sort((a, b) => (a.role === "admin" ? -1 : 1));
   } else {
@@ -382,14 +380,14 @@ export async function adminCreateUser(
           },
   };
 
-  if (db) {
-    const userRef = doc(db, "users", phone);
-    const existing = await getDoc(userRef);
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phone}`);
+    const existing = await get(userRef);
     if (existing.exists()) {
       throw new Error(`User "${phone}" already exists.`);
     }
 
-    await setDoc(userRef, newUser);
+    await set(userRef, newUser);
     return newUser;
   } else {
     const mockUsers = getMockUsers();
@@ -411,12 +409,12 @@ export async function adminExtendUserPlan(
 ): Promise<UserPlan> {
   const now = new Date();
 
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    const snap = await getDoc(userRef);
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
+    const snap = await get(userRef);
     if (!snap.exists()) throw new Error("User does not exist.");
 
-    const userData = snap.data() as UserProfile;
+    const userData = snap.val() as UserProfile;
     let currentExpiry = userData.plan?.expiryDate ? new Date(userData.plan.expiryDate) : now;
 
     // If currently expired, start extending from today; else add to remaining expiry
@@ -430,7 +428,7 @@ export async function adminExtendUserPlan(
       planName: daysToAdd >= 365 ? `${Math.round(daysToAdd / 365)} Year Plan` : `${daysToAdd} Days Plan`,
     };
 
-    await updateDoc(userRef, { plan: updatedPlan });
+    await update(userRef, { plan: updatedPlan });
     return updatedPlan;
   } else {
     const mockUsers = getMockUsers();
@@ -472,9 +470,9 @@ export async function adminSetUserExpiryDate(
     planName: "Custom Plan",
   };
 
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    await updateDoc(userRef, { plan: planUpdates });
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
+    await update(userRef, { plan: planUpdates });
   } else {
     const mockUsers = getMockUsers();
     if (mockUsers[phoneNumber]) {
@@ -493,14 +491,13 @@ export async function adminToggleUserStatus(
   phoneNumber: string,
   isActive: boolean
 ): Promise<void> {
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    // If deactivating, clear currentSessionToken so they are kicked out
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
     const updates: Partial<UserProfile> = { isActive };
     if (!isActive) {
       updates.currentSessionToken = "";
     }
-    await updateDoc(userRef, updates);
+    await update(userRef, updates);
   } else {
     const mockUsers = getMockUsers();
     if (mockUsers[phoneNumber]) {
@@ -524,9 +521,9 @@ export async function adminResetUserPassword(
     throw new Error("Password must be at least 3 characters.");
   }
 
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    await updateDoc(userRef, { password: newPassword.trim() });
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
+    await update(userRef, { password: newPassword.trim() });
   } else {
     const mockUsers = getMockUsers();
     if (mockUsers[phoneNumber]) {
@@ -544,9 +541,9 @@ export async function adminDeleteUser(phoneNumber: string): Promise<void> {
     throw new Error("Cannot delete root admin account.");
   }
 
-  if (db) {
-    const userRef = doc(db, "users", phoneNumber);
-    await deleteDoc(userRef);
+  if (rtdb) {
+    const userRef = ref(rtdb, `users/${phoneNumber}`);
+    await remove(userRef);
   } else {
     const mockUsers = getMockUsers();
     delete mockUsers[phoneNumber];
@@ -598,87 +595,74 @@ export async function fetchTrustedNetworkTime(): Promise<number> {
 }
 
 export interface PlanValidationResult {
+  isValid: boolean;
   isExpired: boolean;
   isTampered: boolean;
   daysRemaining: number;
-  expiryDate: Date | null;
   errorMessage?: string;
 }
 
 /**
- * Comprehensive Subscription Plan & Tampering Validation
- * Prevents clock rollback hacks, offline bypassing, and expired accounts.
+ * Anti-Tamper & Subscription Plan Expiry Validation
  */
 export function validateUserSubscription(user: UserProfile | null): PlanValidationResult {
-  if (!user || user.role === "admin") {
-    return { isExpired: false, isTampered: false, daysRemaining: 9999, expiryDate: null };
+  if (!user) {
+    return { isValid: false, isExpired: false, isTampered: false, daysRemaining: 0 };
   }
 
-  const now = Date.now();
+  // Admin bypass
+  if (user.role === "admin") {
+    return { isValid: true, isExpired: false, isTampered: false, daysRemaining: 9999 };
+  }
+
+  const phoneTime = Date.now();
   const lastKnown = getLastKnownTimestamp();
 
-  // 1. Clock Rollback Check: Check if phone clock is older than last recorded valid time
-  if (lastKnown > 0 && now < lastKnown - 5 * 60 * 1000) {
+  // 1. Anti-Tamper Clock Rollback Detection:
+  if (phoneTime < lastKnown - 1000 * 60 * 30) {
     return {
-      isExpired: true,
+      isValid: false,
+      isExpired: false,
       isTampered: true,
       daysRemaining: 0,
-      expiryDate: user.plan?.expiryDate ? new Date(user.plan.expiryDate) : null,
-      errorMessage: "Phone Date/Time was moved backward. Please enable Automatic Network Time in phone settings.",
+      errorMessage: "Device clock rollback detected! Please set date/time to automatic in phone settings.",
     };
   }
 
-  // 2. Server History Check: Check against account creation & last login recorded by server
-  if (user.createdAt) {
-    const createdTime = new Date(user.createdAt).getTime();
-    if (!isNaN(createdTime) && now < createdTime - 10 * 60 * 1000) {
-      return {
-        isExpired: true,
-        isTampered: true,
-        daysRemaining: 0,
-        expiryDate: user.plan?.expiryDate ? new Date(user.plan.expiryDate) : null,
-        errorMessage: "Device Date is set before account creation date. Please enable Automatic Network Time.",
-      };
-    }
+  if (phoneTime > lastKnown) {
+    setLastKnownTimestamp(phoneTime);
   }
 
-  if (user.lastLoginAt) {
-    const lastLoginTime = new Date(user.lastLoginAt).getTime();
-    if (!isNaN(lastLoginTime) && now < lastLoginTime - 10 * 60 * 1000) {
-      return {
-        isExpired: true,
-        isTampered: true,
-        daysRemaining: 0,
-        expiryDate: user.plan?.expiryDate ? new Date(user.plan.expiryDate) : null,
-        errorMessage: "Device Date is set backward. Please enable Automatic Date & Time in phone settings.",
-      };
-    }
-  }
-
-  // Record this valid forward time
-  if (now > lastKnown) {
-    setLastKnownTimestamp(now);
-  }
-
-  // 3. Plan Expiry Check
-  if (!user.plan?.expiryDate) {
+  // 2. Plan Expiry Check
+  if (!user.plan || !user.plan.expiryDate) {
     return {
+      isValid: false,
       isExpired: true,
       isTampered: false,
       daysRemaining: 0,
-      expiryDate: null,
       errorMessage: "No active subscription plan found. Contact administrator.",
     };
   }
 
-  const expiry = new Date(user.plan.expiryDate);
-  const isExpired = now > expiry.getTime();
-  const daysRemaining = Math.max(0, Math.ceil((expiry.getTime() - now) / (1000 * 60 * 60 * 24)));
+  const expiryTime = new Date(user.plan.expiryDate).getTime();
+  const currentTime = Math.max(phoneTime, lastKnown);
+  const diffMs = expiryTime - currentTime;
+  const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+  if (diffMs <= 0) {
+    return {
+      isValid: false,
+      isExpired: true,
+      isTampered: false,
+      daysRemaining: 0,
+      errorMessage: `Your subscription plan has expired on ${new Date(user.plan.expiryDate).toLocaleDateString()}. Please contact admin to renew.`,
+    };
+  }
 
   return {
-    isExpired,
+    isValid: true,
+    isExpired: false,
     isTampered: false,
     daysRemaining,
-    expiryDate: expiry,
   };
 }

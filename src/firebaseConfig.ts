@@ -4,6 +4,7 @@
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDDUlYBUMe8k9tMDYMtc9nBPn1nkNZEzTs",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "aman-jantri.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://aman-jantri-default-rtdb.firebaseio.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "aman-jantri",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "aman-jantri.firebasestorage.app",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1071933340087",

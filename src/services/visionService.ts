@@ -2,8 +2,8 @@
  * Vision Service: Gemini 2.0 Flash AI Vision for Parchi & Jantri Recognition
  * Reads both WhatsApp screenshots and handwritten paper slips with high accuracy.
  */
-import { db } from './authService';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { rtdb } from './authService';
+import { ref, get, update } from 'firebase/database';
 
 const STORAGE_KEY = 'aman_jantri_gemini_key';
 
@@ -53,15 +53,15 @@ export function saveGeminiApiKey(key: string): void {
 }
 
 /**
- * Fetch Gemini API key remotely from Firestore system_settings/config
+ * Fetch Gemini API key remotely from Realtime Database system_settings/config
  * so all client devices automatically receive the key configured by the Admin.
  */
 export async function fetchRemoteGeminiApiKey(): Promise<string> {
-  if (!db) return getGeminiApiKey();
+  if (!rtdb) return getGeminiApiKey();
   try {
-    const configDoc = await getDoc(doc(db, 'system_settings', 'config'));
-    if (configDoc.exists()) {
-      const data = configDoc.data();
+    const configSnapshot = await get(ref(rtdb, 'system_settings/config'));
+    if (configSnapshot.exists()) {
+      const data = configSnapshot.val();
       if (data?.geminiApiKey && typeof data.geminiApiKey === 'string' && data.geminiApiKey.trim()) {
         const key = data.geminiApiKey.trim();
         saveGeminiApiKey(key);
@@ -69,28 +69,24 @@ export async function fetchRemoteGeminiApiKey(): Promise<string> {
       }
     }
   } catch (e) {
-    console.warn('Failed to fetch remote Gemini key from Firestore:', e);
+    console.warn('Failed to fetch remote Gemini key from RTDB:', e);
   }
   return getGeminiApiKey();
 }
 
 /**
- * Admin action: Save Gemini API Key both locally and in Firestore for all users.
+ * Admin action: Save Gemini API Key both locally and in Realtime Database for all users.
  */
 export async function saveAdminGeminiApiKey(key: string): Promise<void> {
   saveGeminiApiKey(key);
-  if (db) {
+  if (rtdb) {
     try {
-      await setDoc(
-        doc(db, 'system_settings', 'config'),
-        {
-          geminiApiKey: key.trim(),
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+      await update(ref(rtdb, 'system_settings/config'), {
+        geminiApiKey: key.trim(),
+        updatedAt: new Date().toISOString(),
+      });
     } catch (e) {
-      console.warn('Failed to save Gemini key to Firestore:', e);
+      console.warn('Failed to save Gemini key to RTDB:', e);
     }
   }
 }
