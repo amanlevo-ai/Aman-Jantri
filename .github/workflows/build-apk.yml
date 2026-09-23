@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v2.5.0
-          name: Aman Jantri v2.5.0 (Per-Year Plan Validation & Seamless Admin Login)
-          body: "Direct Download APK for Aman Jantri (Android) - Removed Admin Portal tab (admin auto-opens Admin Panel on login), added 1-Year subscription plan validation with app lock on expiry, real-time unlock, and Admin +1 Year plan renewal."
+          tag_name: v2.6.0
+          name: Aman Jantri v2.6.0 (Anti-Hack Tamper Proof License Security)
+          body: "Direct Download APK for Aman Jantri (Android) - Added Anti-Hack Phone Clock Rollback Detection, Trusted Network UTC Time Validation, and Strict Expiry Enforcement to prevent modding or date manipulation hacks."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

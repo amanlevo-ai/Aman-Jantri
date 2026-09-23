@@ -30,6 +30,7 @@ import {
   AlertCircle,
   Lock,
   Calendar,
+  ShieldAlert,
 } from 'lucide-react';
 
 import { UserProfile } from './types';
@@ -37,6 +38,8 @@ import {
   getStoredUser,
   logoutUser,
   subscribeToUserSession,
+  validateUserSubscription,
+  fetchTrustedNetworkTime,
 } from './services/authService';
 import { LoginModal } from './components/LoginModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
@@ -424,11 +427,38 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [forceLogoutNotice, setForceLogoutNotice] = useState<string | null>(null);
 
-  // Check if current user's subscription plan is expired
-  const isPlanExpired = useMemo(() => {
-    if (!currentUser || currentUser.role === 'admin') return false;
-    if (!currentUser.plan?.expiryDate) return false;
-    return new Date() > new Date(currentUser.plan.expiryDate);
+  // Subscription validation & anti-tamper clock verification
+  const [tamperedNotice, setTamperedNotice] = useState<string | null>(null);
+
+  const planValidation = useMemo(() => {
+    return validateUserSubscription(currentUser);
+  }, [currentUser]);
+
+  const isPlanExpired = planValidation.isExpired;
+
+  // Background trusted network time sync & tamper check
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'admin') return;
+
+    fetchTrustedNetworkTime().then(() => {
+      const res = validateUserSubscription(currentUser);
+      if (res.isTampered) {
+        setTamperedNotice(res.errorMessage || "Date mismatch detected.");
+      } else {
+        setTamperedNotice(null);
+      }
+    });
+
+    const interval = setInterval(() => {
+      const res = validateUserSubscription(currentUser);
+      if (res.isTampered) {
+        setTamperedNotice(res.errorMessage || "Date mismatch detected.");
+      } else {
+        setTamperedNotice(null);
+      }
+    }, 20000);
+
+    return () => clearInterval(interval);
   }, [currentUser]);
 
   // Real-time Single Device Session Enforcement & Plan Sync Effect
@@ -1867,8 +1897,69 @@ function renderJantriToCanvas(
         />
       )}
 
+      {/* Date Tampered Anti-Hack Modal */}
+      {currentUser && tamperedNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-7 text-center space-y-5 border border-amber-300 animate-in zoom-in-95">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700 shadow-inner">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                Security Alert: Date Mismatch
+              </span>
+              <h3 className="text-xl font-black text-gray-900">
+                Phone Date Galat Payi Gayi
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {tamperedNotice}
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-left text-xs space-y-1.5 text-amber-900">
+              <div className="font-bold">Kaise Sahi Karein:</div>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-amber-800">
+                <li>Apne phone ki <strong>Settings &rarr; Date & Time</strong> me jayein.</li>
+                <li><strong>"Set Automatically / Network-provided time"</strong> ko ON karein.</li>
+                <li>Wapas aakar <strong>"Verify Date"</strong> button dabayein.</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  logoutUser();
+                  setCurrentUser(null);
+                }}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors"
+              >
+                Log Out
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchTrustedNetworkTime().then(() => {
+                    const res = validateUserSubscription(currentUser);
+                    if (res.isTampered) {
+                      setTamperedNotice(res.errorMessage || "Date mismatch detected.");
+                    } else {
+                      setTamperedNotice(null);
+                    }
+                  });
+                }}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors shadow-sm"
+              >
+                Verify Date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Plan Expired Lock Screen Modal */}
-      {currentUser && isPlanExpired && (
+      {currentUser && !tamperedNotice && isPlanExpired && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-7 text-center space-y-5 border border-red-200 animate-in zoom-in-95">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shadow-inner">

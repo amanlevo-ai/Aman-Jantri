@@ -553,3 +553,132 @@ export async function adminDeleteUser(phoneNumber: string): Promise<void> {
     saveMockUsers(mockUsers);
   }
 }
+
+const LAST_KNOWN_TIME_KEY = "aman_jantri_last_known_time";
+
+export function getLastKnownTimestamp(): number {
+  const val = localStorage.getItem(LAST_KNOWN_TIME_KEY);
+  return val ? parseInt(val, 10) : 0;
+}
+
+export function setLastKnownTimestamp(timestamp: number): void {
+  localStorage.setItem(LAST_KNOWN_TIME_KEY, String(timestamp));
+}
+
+/**
+ * Fetch trusted network time from external UTC time API / Google CDN
+ * Prevents hackers from rolling back phone date
+ */
+export async function fetchTrustedNetworkTime(): Promise<number> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch("https://worldtimeapi.org/api/timezone/Etc/UTC", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.unixtime) {
+        const netTime = data.unixtime * 1000;
+        setLastKnownTimestamp(netTime);
+        return netTime;
+      }
+    }
+  } catch {
+    // network timeout or offline fallback
+  }
+
+  const now = Date.now();
+  const lastKnown = getLastKnownTimestamp();
+  if (now > lastKnown) {
+    setLastKnownTimestamp(now);
+  }
+  return Math.max(now, lastKnown);
+}
+
+export interface PlanValidationResult {
+  isExpired: boolean;
+  isTampered: boolean;
+  daysRemaining: number;
+  expiryDate: Date | null;
+  errorMessage?: string;
+}
+
+/**
+ * Comprehensive Subscription Plan & Tampering Validation
+ * Prevents clock rollback hacks, offline bypassing, and expired accounts.
+ */
+export function validateUserSubscription(user: UserProfile | null): PlanValidationResult {
+  if (!user || user.role === "admin") {
+    return { isExpired: false, isTampered: false, daysRemaining: 9999, expiryDate: null };
+  }
+
+  const now = Date.now();
+  const lastKnown = getLastKnownTimestamp();
+
+  // 1. Clock Rollback Check: Check if phone clock is older than last recorded valid time
+  if (lastKnown > 0 && now < lastKnown - 5 * 60 * 1000) {
+    return {
+      isExpired: true,
+      isTampered: true,
+      daysRemaining: 0,
+      expiryDate: user.plan?.expiryDate ? new Date(user.plan.expiryDate) : null,
+      errorMessage: "Phone Date/Time was moved backward. Please enable Automatic Network Time in phone settings.",
+    };
+  }
+
+  // 2. Server History Check: Check against account creation & last login recorded by server
+  if (user.createdAt) {
+    const createdTime = new Date(user.createdAt).getTime();
+    if (!isNaN(createdTime) && now < createdTime - 10 * 60 * 1000) {
+      return {
+        isExpired: true,
+        isTampered: true,
+        daysRemaining: 0,
+        expiryDate: user.plan?.expiryDate ? new Date(user.plan.expiryDate) : null,
+        errorMessage: "Device Date is set before account creation date. Please enable Automatic Network Time.",
+      };
+    }
+  }
+
+  if (user.lastLoginAt) {
+    const lastLoginTime = new Date(user.lastLoginAt).getTime();
+    if (!isNaN(lastLoginTime) && now < lastLoginTime - 10 * 60 * 1000) {
+      return {
+        isExpired: true,
+        isTampered: true,
+        daysRemaining: 0,
+        expiryDate: user.plan?.expiryDate ? new Date(user.plan.expiryDate) : null,
+        errorMessage: "Device Date is set backward. Please enable Automatic Date & Time in phone settings.",
+      };
+    }
+  }
+
+  // Record this valid forward time
+  if (now > lastKnown) {
+    setLastKnownTimestamp(now);
+  }
+
+  // 3. Plan Expiry Check
+  if (!user.plan?.expiryDate) {
+    return {
+      isExpired: true,
+      isTampered: false,
+      daysRemaining: 0,
+      expiryDate: null,
+      errorMessage: "No active subscription plan found. Contact administrator.",
+    };
+  }
+
+  const expiry = new Date(user.plan.expiryDate);
+  const isExpired = now > expiry.getTime();
+  const daysRemaining = Math.max(0, Math.ceil((expiry.getTime() - now) / (1000 * 60 * 60 * 24)));
+
+  return {
+    isExpired,
+    isTampered: false,
+    daysRemaining,
+    expiryDate: expiry,
+  };
+}
