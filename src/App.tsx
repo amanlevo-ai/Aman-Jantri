@@ -32,6 +32,11 @@ import {
   Calendar,
   ShieldAlert,
   Edit3,
+  Camera,
+  UploadCloud,
+  Sparkles,
+  CheckCircle2,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 import { UserProfile } from './types';
@@ -42,6 +47,11 @@ import {
   validateUserSubscription,
   fetchTrustedNetworkTime,
 } from './services/authService';
+import {
+  scanParchiWithGemini,
+  getGeminiApiKey,
+  saveGeminiApiKey,
+} from './services/visionService';
 import { LoginModal } from './components/LoginModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -386,10 +396,27 @@ export function parseFastEntryText(text: string): FastEntryResult {
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
-    const rawNumbers = match[1];
+    const rawNumbers = match[1].trim();
+    const separator = match[2];
     const amount = parseFloat(match[3]);
 
     if (isNaN(amount) || amount < 0) continue;
+
+    // Check if rawNumbers contains a range like '1-10' or '01-10' or '1 to 10' when separator is '=' or ':' or '%'
+    const rangeMatch = separator !== '-' && rawNumbers.match(/^([0-9]+)\s*(?:-|to|se)\s*([0-9]+)$/i);
+    if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      const minVal = Math.min(start, end);
+      const maxVal = Math.max(start, end);
+      for (let n = minVal; n <= maxVal; n++) {
+        const targetNum = n === 0 ? 100 : n;
+        if (targetNum >= 1 && targetNum <= 100) {
+          amountsMap[targetNum] = (amountsMap[targetNum] || 0) + amount;
+        }
+      }
+      continue;
+    }
 
     const numbers = rawNumbers
       .split(/[\s,./+]+/)
@@ -491,18 +518,88 @@ export default function App() {
     };
   }, [currentUser?.phoneNumber]);
 
-  // User Mode Tab: 'jantri' or 'custom' (Custom Jantri)
-  const [userTab, setUserTab] = useState<'jantri' | 'custom'>('jantri');
+  // User Mode Tab: 'jantri', 'custom', or 'scan' (Upload Picture)
+  const [userTab, setUserTab] = useState<'jantri' | 'custom' | 'scan'>('jantri');
 
   // Fast Entry Text Box state
   const [customEntryText, setCustomEntryText] = useState<string>('');
+
+  // Image Upload & AI Scan states
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanSuccessMessage, setScanSuccessMessage] = useState<string | null>(null);
+  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
+  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getGeminiApiKey());
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Memoized parsed data
   const parsedCustomData = useMemo(() => {
     return parseFastEntryText(customEntryText);
   }, [customEntryText]);
 
-  const isCustomMode = userTab === 'custom';
+  const isCustomMode = userTab === 'custom' || userTab === 'scan';
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedImageFile(file);
+    setScanError(null);
+    setScanSuccessMessage(null);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setSelectedImagePreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearImage = () => {
+    setSelectedImageFile(null);
+    setSelectedImagePreview(null);
+    setScanError(null);
+    setScanSuccessMessage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleScanImage = async () => {
+    if (!selectedImageFile) {
+      setScanError('Please select or upload an image first.');
+      return;
+    }
+
+    try {
+      setIsScanning(true);
+      setScanError(null);
+      setScanSuccessMessage(null);
+
+      const resultText = await scanParchiWithGemini(selectedImageFile);
+      if (!resultText || !resultText.trim()) {
+        setScanError('No parchi numbers or amounts could be detected in this image. Please ensure the picture is clear.');
+        return;
+      }
+
+      setCustomEntryText(resultText);
+      const parsed = parseFastEntryText(resultText);
+      setScanSuccessMessage(`Recognized ${parsed.filledCount} numbers (₹${parsed.totalSum.toLocaleString('en-IN')} Total)! Jantri populated below.`);
+      setStatusMessage(`Parchi scanned successfully! ${parsed.filledCount} numbers added.`);
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Scan error:', err);
+      if (err.message === 'API_KEY_REQUIRED') {
+        setShowApiKeyModal(true);
+        setScanError('Please enter your Gemini API Key to enable AI picture scanning.');
+      } else {
+        setScanError(err.message || 'Failed to scan image. Please try again.');
+      }
+    } finally {
+      setIsScanning(false);
+    }
+  };
   const [jantriViewMode, setJantriViewMode] = useState<'tabs' | 'all'>('tabs');
   const [activeJantriIndex, setActiveJantriIndex] = useState<number>(0);
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
@@ -655,8 +752,8 @@ export default function App() {
 
     if (grandTotal <= 0) {
       setStatusMessage(
-        userTab === 'custom'
-          ? 'Please enter numbers in Parchi text box (e.g. 01-25, 02-50)'
+        (userTab === 'custom' || userTab === 'scan')
+          ? 'Please enter or scan numbers in Parchi text box'
           : 'Please enter an amount to fill jantri (e.g. 500)'
       );
       setTimeout(() => setStatusMessage(null), 3500);
@@ -710,7 +807,7 @@ export default function App() {
     }
 
     const availableNumbers: string[] = [];
-    if (userTab === 'custom' && parsedCustomData.filledCount > 0) {
+    if ((userTab === 'custom' || userTab === 'scan') && parsedCustomData.filledCount > 0) {
       Object.keys(parsedCustomData.amountsMap).forEach((k) => {
         const num = parseInt(k, 10);
         let label = '';
@@ -1408,12 +1505,12 @@ function renderJantriToCanvas(
         )}
       </header>
 
-      {/* User Navigation Menu Bar: Jantri vs Custom Jantri */}
-      <nav className="bg-[#1a283c] border-b border-slate-700/80 px-3 sm:px-4 py-1.5 flex items-center gap-2 sticky top-[48px] sm:top-[53px] z-20 shadow-inner">
+      {/* User Navigation Menu Bar: Jantri vs Custom Jantri vs Upload Picture */}
+      <nav className="bg-[#1a283c] border-b border-slate-700/80 px-3 sm:px-4 py-1.5 flex items-center gap-2 sticky top-[48px] sm:top-[53px] z-20 shadow-inner overflow-x-auto">
         <button
           type="button"
           onClick={() => setUserTab('jantri')}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             userTab === 'jantri'
               ? 'bg-amber-400 text-slate-950 shadow-sm'
               : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -1426,7 +1523,7 @@ function renderJantriToCanvas(
         <button
           type="button"
           onClick={() => setUserTab('custom')}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             userTab === 'custom'
               ? 'bg-amber-400 text-slate-950 shadow-sm'
               : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -1434,6 +1531,19 @@ function renderJantriToCanvas(
         >
           <Edit3 className="w-3.5 h-3.5" />
           <span>Custom Jantri</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setUserTab('scan')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            userTab === 'scan'
+              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>Upload Picture</span>
         </button>
       </nav>
 
@@ -1540,6 +1650,183 @@ function renderJantriToCanvas(
                 </span>
               </div>
             )}
+          </section>
+        )}
+
+        {/* Upload Picture Section (Only in Upload Picture tab) */}
+        {userTab === 'scan' && (
+          <section id="scan-picture-section" className="mb-3 sm:mb-4 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs space-y-3">
+            {/* Header with Title & Scanner Status */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-gray-900">Upload Picture / Screenshot to Jantri</h3>
+                  <p className="text-[11px] text-gray-500">Supports WhatsApp screenshots & handwritten paper slips</p>
+                </div>
+              </div>
+
+              {/* API Key Configure Button */}
+              <button
+                type="button"
+                onClick={() => setShowApiKeyModal(true)}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-300 hover:border-slate-400 bg-slate-50 text-slate-700 flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Configure Gemini AI Key"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>{getGeminiApiKey() ? 'AI Key Configured' : 'Set Gemini Key'}</span>
+              </button>
+            </div>
+
+            {/* File Picker / Drop Area */}
+            <div className="border-2 border-dashed border-slate-200 hover:border-amber-400 rounded-xl p-3 sm:p-4 text-center transition-colors bg-slate-50/50">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+                id="parchi-image-file-input"
+              />
+              
+              {!selectedImagePreview ? (
+                <label
+                  htmlFor="parchi-image-file-input"
+                  className="flex flex-col items-center justify-center gap-2 cursor-pointer py-3"
+                >
+                  <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800">
+                      Click to Select Screenshot or Photo
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Choose from Gallery or take a photo with Camera
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-3 text-left">
+                  <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shrink-0">
+                    <img
+                      src={selectedImagePreview}
+                      alt="Selected parchi"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2 w-full">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 truncate max-w-[200px]">
+                        {selectedImageFile?.name || 'Selected Image'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClearImage}
+                        className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                    
+                    {/* Scan Button */}
+                    <button
+                      type="button"
+                      disabled={isScanning}
+                      onClick={handleScanImage}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 transition-all"
+                    >
+                      {isScanning ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                          <span>Scanning with AI Vision...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Scan Parchi Numbers</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Scan Error Notice */}
+            {scanError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-xs text-red-700">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{scanError}</span>
+                </div>
+                {(scanError.includes('API_KEY') || scanError.includes('Key')) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKeyModal(true)}
+                    className="underline font-bold hover:text-red-800 ml-2 cursor-pointer"
+                  >
+                    Enter Key
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Scan Success Notice */}
+            {scanSuccessMessage && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-xs font-bold text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{scanSuccessMessage}</span>
+              </div>
+            )}
+
+            {/* Extracted Text Box (Editable) */}
+            <div>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-1.5">
+                <label htmlFor="scan-entry-textarea" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                  <Edit3 className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Extracted Numbers & Amounts (Editable):</span>
+                </label>
+                {customEntryText && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomEntryText('')}
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                    title="Clear text box"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Clear Text</span>
+                  </button>
+                )}
+              </div>
+
+              <textarea
+                id="scan-entry-textarea"
+                rows={3}
+                value={customEntryText}
+                onChange={(e) => setCustomEntryText(e.target.value)}
+                placeholder="Scanned numbers will appear here automatically (e.g. 12, 45 = 100, 25 = 500). You can also edit or type directly."
+                className="w-full bg-slate-50/70 border border-gray-300 rounded-lg p-2.5 text-xs sm:text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a] focus:bg-white shadow-xs resize-y"
+              />
+
+              <div className="mt-2 flex items-center justify-between text-xs flex-wrap gap-2">
+                <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                  {parsedCustomData.filledCount} Boxes Filled (₹{parsedCustomData.totalSum.toLocaleString('en-IN')})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('jantri-table-container');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="text-xs font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>View Filled Jantri Below ↓</span>
+                </button>
+              </div>
+            </div>
           </section>
         )}
 
@@ -2096,6 +2383,77 @@ function renderJantriToCanvas(
             // Password changed
           }}
         />
+      )}
+
+      {/* Gemini AI Vision Key Configuration Modal */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5 border border-slate-200 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                <h3 className="text-sm font-bold text-slate-900">Gemini AI Vision Setup</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowApiKeyModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Google Gemini 2.0 Flash Vision reads both <strong>WhatsApp screenshots</strong> and <strong>handwritten paper slips</strong> with extreme precision. Enter your free API key below:
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">Gemini API Key</label>
+              <input
+                type="text"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-xs"
+              />
+              <p className="text-[11px] text-slate-500">
+                Get a free key in 30 seconds at{' '}
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 font-bold underline"
+                >
+                  Google AI Studio
+                </a>{' '}
+                (1,500 free scans/day).
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowApiKeyModal(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  saveGeminiApiKey(apiKeyInput);
+                  setShowApiKeyModal(false);
+                  setScanError(null);
+                  setStatusMessage('Gemini API Key saved successfully!');
+                  setTimeout(() => setStatusMessage(null), 3000);
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-[#21324a] text-amber-400 hover:bg-[#2a3f5c] cursor-pointer shadow-xs transition-colors"
+              >
+                Save Key
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

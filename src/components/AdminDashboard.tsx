@@ -26,6 +26,8 @@ import {
   User,
   SlidersHorizontal,
   X,
+  Camera,
+  Sparkles,
 } from "lucide-react";
 import {
   adminGetAllUsers,
@@ -37,13 +39,17 @@ import {
   adminSetUserExpiryDate,
   logoutUser,
 } from "../services/authService";
+import {
+  getGeminiApiKey,
+  saveGeminiApiKey,
+} from "../services/visionService";
 import { UserProfile } from "../types";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminTab = "users" | "add_user" | "plans" | "security";
+type AdminTab = "users" | "add_user" | "plans" | "security" | "scanner";
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>("users");
@@ -71,6 +77,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   // Change Admin Password State
   const [adminNewPass, setAdminNewPass] = useState("");
   const [isUpdatingAdminPass, setIsUpdatingAdminPass] = useState(false);
+
+  // Gemini AI Vision Scanner Setup State
+  const [adminApiKey, setAdminApiKey] = useState(() => getGeminiApiKey());
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
 
   // Feedback states
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -379,6 +389,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         >
           <Lock className="w-4 h-4" />
           <span>Admin Security</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("scanner")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "scanner"
+              ? "bg-amber-400 text-slate-950 shadow-md"
+              : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <Camera className="w-4 h-4" />
+          <span>AI Scanner Setup</span>
         </button>
       </nav>
 
@@ -878,6 +901,110 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                   </>
                 )}
               </button>
+            </form>
+          </section>
+        )}
+
+        {/* TAB 5: AI Vision Scanner Setup */}
+        {activeTab === "scanner" && (
+          <section className="bg-[#1b2636] border border-slate-700/80 rounded-2xl p-5 sm:p-7 shadow-lg max-w-xl mx-auto space-y-5">
+            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-700/70">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 border border-amber-500/40">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white">
+                  Gemini AI Vision Scanner Setup
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Configure Google Gemini AI to scan WhatsApp screenshots & handwritten slips
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-2 text-xs text-slate-300 leading-relaxed">
+              <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                <Camera className="w-4 h-4" />
+                <span>How the AI Scanner Works:</span>
+              </div>
+              <p>
+                When clients upload a WhatsApp screenshot or a handwritten paper parchi slip, the app uses <strong>Google Gemini 2.0 Flash Vision</strong> to instantly detect numbers and amounts and fill the Jantri automatically.
+              </p>
+              <p className="text-slate-400">
+                A Gemini API key comes with <strong>1,500 free scans every day</strong>. You can generate a free key from Google AI Studio.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setIsSavingApiKey(true);
+                saveGeminiApiKey(adminApiKey);
+                setTimeout(() => {
+                  setIsSavingApiKey(false);
+                  setSuccess("Gemini AI API Key saved successfully!");
+                  setTimeout(() => setSuccess(null), 3500);
+                }, 300);
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">
+                  Gemini API Key:
+                </label>
+                <input
+                  type="text"
+                  value={adminApiKey}
+                  onChange={(e) => setAdminApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Free key link:{' '}
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-amber-400 font-bold underline hover:text-amber-300"
+                  >
+                    https://aistudio.google.com/app/apikey
+                  </a>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={isSavingApiKey}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingApiKey ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>Saving Key...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Save Gemini Key</span>
+                    </>
+                  )}
+                </button>
+                {adminApiKey && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminApiKey("");
+                      saveGeminiApiKey("");
+                      setSuccess("Gemini API Key removed.");
+                      setTimeout(() => setSuccess(null), 3000);
+                    }}
+                    className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-red-400 text-xs font-semibold rounded-xl border border-slate-700 cursor-pointer transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
             </form>
           </section>
         )}

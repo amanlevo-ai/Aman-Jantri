@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.1.0
-          name: Aman Jantri v3.1.0 (Empty Default for Custom Jantri & Smart Custom Generation)
-          body: "Direct Download APK for Aman Jantri (Android) - Custom Jantri is now completely empty by default (no 500 default value) with ₹0 starting grand total, and smart parchi generation strictly using user-entered numbers."
+          tag_name: v3.2.0
+          name: Aman Jantri v3.2.0 (Upload Picture & AI Vision Scanner for WhatsApp & Handwritten Slips)
+          body: "Direct Download APK for Aman Jantri (Android) - New Upload Picture tab with Gemini 2.0 Flash AI Vision to automatically scan WhatsApp screenshots and handwritten parchi slips and auto-fill the Jantri grid."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
