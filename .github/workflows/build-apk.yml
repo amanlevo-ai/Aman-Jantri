@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v2.7.0
-          name: Aman Jantri v2.7.0 (100% English UI & Security Alerts)
-          body: "Direct Download APK for Aman Jantri (Android) - Converted all modal dialogs, security alerts, notices, user management instructions, and status messages to clean, professional English."
+          tag_name: v2.8.0
+          name: Aman Jantri v2.8.0 (Admin Dashboard with Menu Bar & Table View)
+          body: "Direct Download APK for Aman Jantri (Android) - Features dedicated Admin Dashboard separated completely from Jantri calculation interface, navigation menu bar (Registered Users, Add User, Plan Overview, Admin Security), structured user list in table format with rows and columns, search/filter, plan editor, and 100% English UI."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

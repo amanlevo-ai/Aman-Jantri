@@ -43,7 +43,7 @@ import {
 } from './services/authService';
 import { LoginModal } from './components/LoginModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { AdminPanelModal } from './components/AdminPanelModal';
+import { AdminDashboard } from './components/AdminDashboard';
 
 interface JantriTheme {
   name: string;
@@ -424,7 +424,6 @@ export default function App() {
   // Authentication & Session States
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUser());
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [forceLogoutNotice, setForceLogoutNotice] = useState<string | null>(null);
 
   // Subscription validation & anti-tamper clock verification
@@ -471,7 +470,6 @@ export default function App() {
         logoutUser();
         setCurrentUser(null);
         setShowChangePassword(false);
-        setShowAdminPanel(false);
         setIsJantriModalOpen(false);
         setForceLogoutNotice(reason);
       },
@@ -1251,6 +1249,52 @@ function renderJantriToCanvas(
     }
   };
 
+  // 1. Unauthenticated Screen
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        {forceLogoutNotice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5 text-center space-y-4 border border-red-200 animate-in zoom-in-95">
+              <div className="w-12 h-12 mx-auto rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Session Expired</h3>
+                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">{forceLogoutNotice}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForceLogoutNotice(null)}
+                className="w-full bg-[#21324a] hover:bg-[#2c4263] text-amber-400 font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors shadow-sm"
+              >
+                Log In Again
+              </button>
+            </div>
+          </div>
+        )}
+        <LoginModal
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            setForceLogoutNotice(null);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 2. Dedicated Admin Console (No Jantri / Parchi interface for Admin)
+  if (currentUser.role === 'admin') {
+    return (
+      <AdminDashboard
+        onLogout={() => {
+          logoutUser();
+          setCurrentUser(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div id="jantri-app-container" className="min-h-screen bg-[#f1f5f9] text-gray-800 flex flex-col font-sans overflow-x-hidden relative">
       {/* Pull Down to Refresh Indicator */}
@@ -1310,19 +1354,6 @@ function renderJantriToCanvas(
                 )
               )}
             </div>
-
-            {/* Admin Panel button (only for admin) */}
-            {currentUser.role === 'admin' && (
-              <button
-                type="button"
-                onClick={() => setShowAdminPanel(true)}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                title="Admin Control Panel"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Admin Panel</span>
-              </button>
-            )}
 
             {/* Change Password button */}
             <button
@@ -1884,19 +1915,6 @@ function renderJantriToCanvas(
         )}
       </main>
 
-      {/* Login Screen Modal if not authenticated */}
-      {!currentUser && (
-        <LoginModal
-          onLoginSuccess={(user) => {
-            setCurrentUser(user);
-            setForceLogoutNotice(null);
-            if (user.role === 'admin') {
-              setShowAdminPanel(true);
-            }
-          }}
-        />
-      )}
-
       {/* Date Tampered Anti-Hack Modal */}
       {currentUser && tamperedNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
@@ -2055,11 +2073,6 @@ function renderJantriToCanvas(
             // Password changed
           }}
         />
-      )}
-
-      {/* Admin Control Panel Modal */}
-      {showAdminPanel && currentUser?.role === 'admin' && (
-        <AdminPanelModal onClose={() => setShowAdminPanel(false)} />
       )}
     </div>
   );
