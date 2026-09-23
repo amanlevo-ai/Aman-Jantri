@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.4.0
-          name: Aman Jantri v3.4.0 (Secure Obfuscated API Key, Zero Leakage & Admin Firestore Sync)
-          body: "Direct Download APK for Aman Jantri (Android) - AI Scanner key is secured via environment variables, XOR runtime obfuscation, and Firestore sync. Zero plain text leakage to git or client panel."
+          tag_name: v3.5.0
+          name: Aman Jantri v3.5.0 (Live Firebase Cloud Integration & Cross-Device Sync)
+          body: "Direct Download APK for Aman Jantri (Android) - Fully connected to Firebase project 'aman-jantri' with real-time multi-device user and plan synchronization."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
