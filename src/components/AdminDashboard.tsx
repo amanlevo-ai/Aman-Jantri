@@ -22,6 +22,9 @@ import {
   Eye,
   EyeOff,
   UserX,
+  UserCheck,
+  User,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import {
@@ -59,13 +62,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [newPlanDays, setNewPlanDays] = useState(365);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Inline Password Reset state
-  const [resettingUserPhone, setResettingUserPhone] = useState<string | null>(null);
-  const [resetNewPass, setResetNewPass] = useState("");
-
-  // Edit Plan Modal / State
-  const [editingPlanUser, setEditingPlanUser] = useState<UserProfile | null>(null);
-  const [customExpiryDate, setCustomExpiryDate] = useState("");
+  // Dedicated Client Management Modal State
+  const [managingUser, setManagingUser] = useState<UserProfile | null>(null);
+  const [manageNewPass, setManageNewPass] = useState("");
+  const [manageCustomDate, setManageCustomDate] = useState("");
   const [isUpdatingPlan, setIsUpdatingPlan] = useState(false);
 
   // Change Admin Password State
@@ -174,25 +174,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setError(null);
       const updated = await adminExtendUserPlan(phone, days);
       setSuccess(`User "${phone}" plan extended till ${new Date(updated.expiryDate).toLocaleDateString()}!`);
-      await loadUsers();
+      const list = await adminGetAllUsers();
+      setUsers(list);
+      setManagingUser((prev) => (prev && prev.phoneNumber === phone ? list.find((u) => u.phoneNumber === phone) || null : prev));
       setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
       setError(err?.message || "Failed to extend plan.");
     }
   };
 
-  const handleSaveCustomExpiry = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingPlanUser || !customExpiryDate) return;
-
+  const handleSaveCustomDate = async (phone: string, dateStr: string) => {
+    if (!dateStr) return;
     try {
       setIsUpdatingPlan(true);
       setError(null);
-      const iso = new Date(customExpiryDate).toISOString();
-      await adminSetUserExpiryDate(editingPlanUser.phoneNumber, iso);
-      setSuccess(`Updated validity for "${editingPlanUser.phoneNumber}" till ${new Date(iso).toLocaleDateString()}!`);
-      setEditingPlanUser(null);
-      await loadUsers();
+      const iso = new Date(dateStr).toISOString();
+      await adminSetUserExpiryDate(phone, iso);
+      setSuccess(`Updated validity for "${phone}" till ${new Date(iso).toLocaleDateString()}!`);
+      const list = await adminGetAllUsers();
+      setUsers(list);
+      setManagingUser((prev) => (prev && prev.phoneNumber === phone ? list.find((u) => u.phoneNumber === phone) || null : prev));
       setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
       setError(err?.message || "Failed to update custom expiry date.");
@@ -205,25 +206,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     try {
       setError(null);
       await adminToggleUserStatus(user.phoneNumber, !user.isActive);
-      await loadUsers();
+      const list = await adminGetAllUsers();
+      setUsers(list);
+      setManagingUser((prev) => (prev && prev.phoneNumber === user.phoneNumber ? list.find((u) => u.phoneNumber === user.phoneNumber) || null : prev));
     } catch (err: any) {
       setError(err?.message || "Failed to update user status.");
     }
   };
 
-  const handleResetPassword = async (phone: string) => {
-    if (!resetNewPass.trim() || resetNewPass.trim().length < 3) {
+  const handleSaveModalPassword = async (phone: string) => {
+    if (!manageNewPass.trim() || manageNewPass.trim().length < 3) {
       setError("New password must be at least 3 characters.");
       return;
     }
 
     try {
       setError(null);
-      await adminResetUserPassword(phone, resetNewPass.trim());
+      await adminResetUserPassword(phone, manageNewPass.trim());
       setSuccess(`Password for ${phone} updated successfully!`);
-      setResettingUserPhone(null);
-      setResetNewPass("");
-      await loadUsers();
+      setManageNewPass("");
+      const list = await adminGetAllUsers();
+      setUsers(list);
+      setManagingUser((prev) => (prev && prev.phoneNumber === phone ? list.find((u) => u.phoneNumber === phone) || null : prev));
       setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
       setError(err?.message || "Failed to reset password.");
@@ -261,6 +265,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setError(null);
       await adminDeleteUser(phone);
       setSuccess(`User "${phone}" deleted.`);
+      setManagingUser((prev) => (prev && prev.phoneNumber === phone ? null : prev));
       await loadUsers();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
@@ -394,75 +399,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </div>
         )}
 
-        {/* Top Summary Metric Cards */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-[#1b2636] border border-slate-700/80 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-medium">Total Clients</span>
-              <Users className="w-4 h-4 text-blue-400" />
+        {/* Sleek KPI Summary Strip */}
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="bg-[#182333] border border-slate-700/70 rounded-xl px-4 py-3 flex items-center justify-between shadow-xs">
+            <div>
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Total Clients</span>
+              <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{metrics.totalUsers}</div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white mt-2">
-              {metrics.totalUsers}
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+              <Users className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Registered app accounts</p>
           </div>
 
-          <div className="bg-[#1b2636] border border-slate-700/80 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-emerald-400 font-medium">Active Plans</span>
-              <Calendar className="w-4 h-4 text-emerald-400" />
+          <div className="bg-[#182333] border border-slate-700/70 rounded-xl px-4 py-3 flex items-center justify-between shadow-xs">
+            <div>
+              <span className="text-[11px] text-emerald-400/90 font-semibold uppercase tracking-wider">Active Plans</span>
+              <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">{metrics.activePlans}</div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400 mt-2">
-              {metrics.activePlans}
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+              <Calendar className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">App currently unlocked</p>
           </div>
 
-          <div className="bg-[#1b2636] border border-slate-700/80 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-rose-400 font-medium">Expired Plans</span>
-              <Clock className="w-4 h-4 text-rose-400" />
+          <div className="bg-[#182333] border border-slate-700/70 rounded-xl px-4 py-3 flex items-center justify-between shadow-xs">
+            <div>
+              <span className="text-[11px] text-rose-400/90 font-semibold uppercase tracking-wider">Expired Plans</span>
+              <div className="text-xl sm:text-2xl font-black text-rose-400 mt-0.5">{metrics.expiredPlans}</div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-rose-400 mt-2">
-              {metrics.expiredPlans}
+            <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
+              <Clock className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">App locked pending renewal</p>
           </div>
 
-          <div className="bg-[#1b2636] border border-slate-700/80 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-amber-400 font-medium">Deactivated</span>
-              <UserX className="w-4 h-4 text-amber-400" />
+          <div className="bg-[#182333] border border-slate-700/70 rounded-xl px-4 py-3 flex items-center justify-between shadow-xs">
+            <div>
+              <span className="text-[11px] text-amber-400/90 font-semibold uppercase tracking-wider">Deactivated</span>
+              <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5">{metrics.deactivated}</div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 mt-2">
-              {metrics.deactivated}
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+              <UserX className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Manually disabled by admin</p>
           </div>
         </section>
 
         {/* TAB 1: Registered Users Table */}
         {activeTab === "users" && (
-          <section className="bg-[#1b2636] border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg">
+          <section className="bg-[#182333] border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg">
             {/* Table Filters Header */}
             <div className="p-4 sm:p-5 border-b border-slate-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-amber-400" />
-                <h2 className="text-sm sm:text-base font-bold text-white">
-                  User Directory & Plan Table
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-400" />
+                  <span>Registered Clients Directory</span>
                 </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  View credentials, check plan validity, and manage client access
+                </p>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Search Bar */}
-                <div className="relative flex-1 sm:w-60">
+                <div className="relative flex-1 sm:w-56">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search username / phone..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="Search mobile number..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-400"
                   />
                 </div>
 
@@ -470,9 +474,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <select
                   value={statusFilter}
                   onChange={(e: any) => setStatusFilter(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+                  className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer"
                 >
-                  <option value="all">All Statuses</option>
+                  <option value="all">All ({users.filter((u) => u.role !== "admin").length})</option>
                   <option value="active">Active Plans</option>
                   <option value="expired">Expired Plans</option>
                   <option value="deactivated">Deactivated</option>
@@ -493,25 +497,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             {isLoading ? (
               <div className="py-16 text-center text-xs text-slate-400 flex flex-col items-center gap-3">
                 <Loader2 className="w-7 h-7 animate-spin text-amber-400" />
-                <span>Loading registered users from server...</span>
+                <span>Loading clients...</span>
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="py-16 text-center text-xs text-slate-400 space-y-2">
                 <Users className="w-8 h-8 mx-auto text-slate-600" />
-                <p>No users found matching your search criteria.</p>
+                <p>No clients found matching your search.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-[#151e2b] text-slate-300 font-bold border-b border-slate-700/80 uppercase tracking-wider text-[11px]">
-                      <th className="py-3 px-4">#</th>
-                      <th className="py-3 px-4">Username / Mobile</th>
+                    <tr className="bg-[#121b27] text-slate-300 font-bold border-b border-slate-700/80 uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-4 w-12 text-slate-500">#</th>
+                      <th className="py-3 px-4">Client ID / Mobile</th>
                       <th className="py-3 px-4">Password</th>
                       <th className="py-3 px-4">Subscription Plan</th>
-                      <th className="py-3 px-4">Device Status</th>
-                      <th className="py-3 px-4">Last Activity</th>
-                      <th className="py-3 px-4 text-center">Actions</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
@@ -521,40 +524,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       const daysRemaining = expiry
                         ? Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
                         : 0;
-
                       const isPasswordShown = !!visiblePasswords[u.phoneNumber];
-                      const isResetting = resettingUserPhone === u.phoneNumber;
 
                       return (
                         <tr
                           key={u.phoneNumber}
-                          className={`hover:bg-slate-800/50 transition-colors ${
-                            isExpired ? "bg-rose-950/15" : ""
-                          }`}
+                          className="hover:bg-slate-800/40 transition-colors"
                         >
-                          {/* Row Index */}
-                          <td className="py-3 px-4 text-slate-500 font-mono">
-                            {idx + 1}
+                          {/* # */}
+                          <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                            {String(idx + 1).padStart(2, "0")}
                           </td>
 
-                          {/* Username */}
-                          <td className="py-3 px-4">
-                            <span className="font-bold text-white font-mono text-xs sm:text-sm">
-                              {u.phoneNumber}
-                            </span>
+                          {/* Client ID / Mobile */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  !u.isActive
+                                    ? "bg-amber-400"
+                                    : isExpired
+                                    ? "bg-rose-400"
+                                    : "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                                }`}
+                                title={!u.isActive ? "Deactivated" : isExpired ? "Expired" : "Active"}
+                              />
+                              <span className="font-bold text-white font-mono text-xs sm:text-sm tracking-wide">
+                                {u.phoneNumber}
+                              </span>
+                            </div>
                           </td>
 
                           {/* Password */}
-                          <td className="py-3 px-4">
-                            <div className="inline-flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-700">
-                              <span className="font-mono text-amber-300 font-semibold select-all">
+                          <td className="py-3.5 px-4">
+                            <div className="inline-flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-700/80">
+                              <span className="font-mono text-amber-300 font-semibold text-xs select-all">
                                 {isPasswordShown ? u.password : "••••••••"}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => togglePasswordVisibility(u.phoneNumber)}
                                 className="text-slate-400 hover:text-white p-0.5 cursor-pointer ml-0.5"
-                                title={isPasswordShown ? "Hide password" : "Show password"}
+                                title={isPasswordShown ? "Hide" : "Show"}
                               >
                                 {isPasswordShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                               </button>
@@ -562,7 +573,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                 type="button"
                                 onClick={() => handleCopy(u.password, u.phoneNumber)}
                                 className="text-slate-400 hover:text-emerald-400 p-0.5 cursor-pointer"
-                                title="Copy password"
+                                title="Copy"
                               >
                                 {copiedId === u.phoneNumber ? (
                                   <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -573,145 +584,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                             </div>
                           </td>
 
-                          {/* Subscription Plan & Expiry */}
-                          <td className="py-3 px-4">
+                          {/* Subscription Plan */}
+                          <td className="py-3.5 px-4">
                             {isExpired ? (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
                                 <Clock className="w-3 h-3 text-rose-400" />
-                                <span>Expired ({expiry ? expiry.toLocaleDateString() : "No Plan"})</span>
-                              </div>
+                                <span>Expired</span>
+                              </span>
                             ) : (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                                 <Calendar className="w-3 h-3 text-emerald-400" />
-                                <span>{daysRemaining}d left (Till {expiry?.toLocaleDateString()})</span>
-                              </div>
+                                <span>{daysRemaining}d left · Till {expiry?.toLocaleDateString()}</span>
+                              </span>
                             )}
                           </td>
 
-                          {/* Device / Account Status */}
-                          <td className="py-3 px-4">
+                          {/* Status */}
+                          <td className="py-3.5 px-4">
                             {u.isActive ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>Active</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                                <XCircle className="w-3 h-3 text-rose-400" />
-                                <span>Deactivated</span>
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400">
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Disabled</span>
                               </span>
                             )}
                           </td>
 
-                          {/* Last Login */}
-                          <td className="py-3 px-4 text-slate-400 text-[11px]">
-                            {u.lastLoginAt ? (
-                              <span>{new Date(u.lastLoginAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
-                            ) : (
-                              <span className="text-slate-600">Never logged in</span>
-                            )}
-                          </td>
-
-                          {/* Action Buttons */}
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                              {/* +1 Year Plan Button */}
+                          {/* Actions */}
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="inline-flex items-center gap-2">
+                              {/* Quick +1 Year */}
                               <button
                                 type="button"
                                 onClick={() => handleExtendPlan(u.phoneNumber, 365)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs text-[11px]"
-                                title="Add 1 Year (365 Days) to this user"
+                                className="bg-emerald-600/90 hover:bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs text-xs"
+                                title="Quick Renew +1 Year (365 Days)"
                               >
-                                <CalendarPlus className="w-3 h-3" />
+                                <CalendarPlus className="w-3.5 h-3.5" />
                                 <span>+1 Year</span>
                               </button>
 
-                              {/* Edit Plan Date */}
+                              {/* Manage Button */}
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setEditingPlanUser(u);
-                                  const currentExp = u.plan?.expiryDate
+                                  setManagingUser(u);
+                                  setManageNewPass("");
+                                  const exp = u.plan?.expiryDate
                                     ? new Date(u.plan.expiryDate).toISOString().split("T")[0]
                                     : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-                                  setCustomExpiryDate(currentExp);
+                                  setManageCustomDate(exp);
                                 }}
-                                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
-                                title="Edit expiry date"
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                                title="Manage user details, password & plan"
                               >
-                                <Edit3 className="w-3 h-3 text-amber-400" />
-                                <span>Edit Plan</span>
-                              </button>
-
-                              {/* Reset Password */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (isResetting) {
-                                    setResettingUserPhone(null);
-                                  } else {
-                                    setResettingUserPhone(u.phoneNumber);
-                                    setResetNewPass("");
-                                  }
-                                }}
-                                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
-                                title="Reset password"
-                              >
-                                <KeyRound className="w-3 h-3 text-blue-400" />
-                                <span>Pass</span>
-                              </button>
-
-                              {/* Deactivate / Activate */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleStatus(u)}
-                                className={`px-2 py-1 rounded-lg border font-semibold transition-colors cursor-pointer text-[11px] ${
-                                  u.isActive
-                                    ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40"
-                                    : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                                }`}
-                              >
-                                {u.isActive ? "Deactivate" : "Activate"}
-                              </button>
-
-                              {/* Delete */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteUser(u.phoneNumber)}
-                                className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 p-1 rounded-lg transition-colors cursor-pointer"
-                                title="Delete user permanently"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Manage</span>
                               </button>
                             </div>
-
-                            {/* Inline Password Reset Box */}
-                            {isResetting && (
-                              <div className="mt-2.5 p-2 bg-slate-900 border border-blue-500/40 rounded-xl flex items-center gap-2 animate-in fade-in">
-                                <input
-                                  type="text"
-                                  value={resetNewPass}
-                                  onChange={(e) => setResetNewPass(e.target.value)}
-                                  placeholder="Enter new password"
-                                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                  autoFocus
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleResetPassword(u.phoneNumber)}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 rounded-lg text-xs cursor-pointer shadow-xs"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setResettingUserPhone(null)}
-                                  className="text-slate-400 hover:text-white px-2 py-1 text-xs cursor-pointer"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
                           </td>
                         </tr>
                       );
@@ -948,82 +882,203 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </section>
         )}
 
-        {/* Edit Plan Custom Expiry Modal */}
-        {editingPlanUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-[#1b2636] border border-slate-700 rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 animate-in zoom-in-95">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-base font-bold text-white">
-                    Set Plan Expiry for {editingPlanUser.phoneNumber}
-                  </h3>
+        {/* Manage Client Modal */}
+        {managingUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="w-full max-w-lg bg-[#182333] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 my-auto">
+              {/* Modal Header */}
+              <div className="bg-[#121b27] px-5 py-4 border-b border-slate-700/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white font-mono">
+                        {managingUser.phoneNumber}
+                      </h3>
+                      {(() => {
+                        const expiry = managingUser.plan?.expiryDate ? new Date(managingUser.plan.expiryDate) : null;
+                        const isExpired = !expiry || Date.now() > expiry.getTime();
+                        return (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              !managingUser.isActive
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                : isExpired
+                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                            }`}
+                          >
+                            {!managingUser.isActive ? "Deactivated" : isExpired ? "Expired" : "Active"}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <p className="text-xs text-slate-400">Manage subscription, password & account</p>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setEditingPlanUser(null)}
-                  className="text-slate-400 hover:text-white p-1 cursor-pointer rounded-lg hover:bg-slate-800 transition-colors"
+                  onClick={() => setManagingUser(null)}
+                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveCustomExpiry} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Select New Expiration Date:
-                  </label>
-                  <input
-                    type="date"
-                    value={customExpiryDate}
-                    onChange={(e) => setCustomExpiryDate(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
-                    required
-                  />
+              <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                {/* 1. Subscription Plan Section */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                      <span>Subscription Plan Validity</span>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-400">
+                      {managingUser.plan?.expiryDate
+                        ? `Valid till: ${new Date(managingUser.plan.expiryDate).toLocaleDateString()}`
+                        : "No Plan"}
+                    </span>
+                  </div>
+
+                  {/* Quick Extension Buttons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleExtendPlan(managingUser.phoneNumber, 365)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 rounded-lg transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      <CalendarPlus className="w-3.5 h-3.5" />
+                      <span>+1 Year</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExtendPlan(managingUser.phoneNumber, 180)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs py-2 rounded-lg transition-colors cursor-pointer"
+                    >
+                      +6 Months
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExtendPlan(managingUser.phoneNumber, 30)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs py-2 rounded-lg transition-colors cursor-pointer"
+                    >
+                      +30 Days
+                    </button>
+                  </div>
+
+                  {/* Custom Date Picker */}
+                  <div className="pt-2 border-t border-slate-800 space-y-2">
+                    <label className="block text-[11px] font-semibold text-slate-400">
+                      Or set custom expiration date:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={manageCustomDate}
+                        onChange={(e) => setManageCustomDate(e.target.value)}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer"
+                      />
+                      <button
+                        type="button"
+                        disabled={!manageCustomDate || isUpdatingPlan}
+                        onClick={() => handleSaveCustomDate(managingUser.phoneNumber, manageCustomDate)}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {isUpdatingPlan ? "Saving..." : "Set Date"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setFullYear(d.getFullYear() + 1);
-                      setCustomExpiryDate(d.toISOString().split("T")[0]);
-                    }}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-1.5 px-2.5 rounded-lg border border-slate-700 cursor-pointer"
-                  >
-                    1 Year from Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setFullYear(d.getFullYear() + 2);
-                      setCustomExpiryDate(d.toISOString().split("T")[0]);
-                    }}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-1.5 px-2.5 rounded-lg border border-slate-700 cursor-pointer"
-                  >
-                    2 Years from Today
-                  </button>
+                {/* 2. Password Management Section */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                      <KeyRound className="w-4 h-4 text-blue-400" />
+                      <span>Password</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-semibold text-amber-300">
+                        {managingUser.password}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(managingUser.password, `modal-${managingUser.phoneNumber}`)}
+                        className="text-slate-400 hover:text-emerald-400 p-1 rounded cursor-pointer"
+                        title="Copy password"
+                      >
+                        {copiedId === `modal-${managingUser.phoneNumber}` ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={manageNewPass}
+                      onChange={(e) => setManageNewPass(e.target.value)}
+                      placeholder="Enter new password to reset"
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                    <button
+                      type="button"
+                      disabled={!manageNewPass.trim() || manageNewPass.trim().length < 3}
+                      onClick={() => handleSaveModalPassword(managingUser.phoneNumber)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Change Pass
+                    </button>
+                  </div>
                 </div>
 
-                <div className="pt-2 flex items-center gap-3">
-                  <button
-                    type="submit"
-                    disabled={isUpdatingPlan}
-                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl cursor-pointer transition-colors shadow-sm disabled:opacity-50"
-                  >
-                    {isUpdatingPlan ? "Saving..." : "Save Expiry Date"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingPlanUser(null)}
-                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs cursor-pointer transition-colors"
-                  >
-                    Cancel
-                  </button>
+                {/* 3. Account Status & Danger Zone */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="text-xs font-bold text-slate-300">
+                    Account Controls
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(managingUser)}
+                      className={`flex-1 font-bold text-xs py-2 px-3 rounded-lg border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                        managingUser.isActive
+                          ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40"
+                          : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      }`}
+                    >
+                      {managingUser.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                      <span>{managingUser.isActive ? "Deactivate User" : "Activate User"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteUser(managingUser.phoneNumber)}
+                      className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold text-xs py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete User</span>
+                    </button>
+                  </div>
                 </div>
-              </form>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-[#121b27] px-5 py-3 border-t border-slate-700/80 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setManagingUser(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         )}
