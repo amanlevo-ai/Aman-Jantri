@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v2.3.0
-          name: Aman Jantri v2.3.0 (Firebase Login & Single Device Session)
-          body: "Direct Download APK for Aman Jantri (Android) - New Feature: Secure Phone Number & Password Login, Strict Single-Device Session Protection with Real-Time Logout on concurrent devices, Admin User Management Panel, and Change Password feature."
+          tag_name: v2.3.1
+          name: Aman Jantri v2.3.1 (Clean Login Screen)
+          body: "Direct Download APK for Aman Jantri (Android) - Cleaned Login Page by removing single device info text below login form."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

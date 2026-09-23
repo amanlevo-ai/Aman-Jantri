@@ -119,11 +119,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
               <span>Sign In</span>
             )}
           </button>
-
-          <div className="pt-2 text-center text-[11px] text-gray-500">
-            <p>Single device session protection is active.</p>
-            <p className="mt-0.5 text-gray-400">Accounts are created by Admin only.</p>
-          </div>
         </form>
       </div>
     </div>
