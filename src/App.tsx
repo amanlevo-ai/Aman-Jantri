@@ -38,7 +38,9 @@ import {
   Sparkles,
   CheckCircle2,
   Image as ImageIcon,
+  Crop,
 } from 'lucide-react';
+import { ImageCropModal } from './components/ImageCropModal';
 
 import { UserProfile } from './types';
 import {
@@ -517,8 +519,20 @@ export default function App() {
     };
   }, [currentUser?.phoneNumber]);
 
-  // User Mode Tab: 'jantri', 'custom', or 'scan' (Upload Picture)
-  const [userTab, setUserTab] = useState<'jantri' | 'custom' | 'scan'>('jantri');
+  // User Mode Tab: 'jantri', 'custom', or 'scan' (Upload Picture) - Persisted across reloads
+  const [userTab, setUserTab] = useState<'jantri' | 'custom' | 'scan'>(() => {
+    try {
+      const saved = localStorage.getItem('aman_jantri_active_tab');
+      if (saved === 'jantri' || saved === 'custom' || saved === 'scan') return saved;
+    } catch {}
+    return 'jantri';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aman_jantri_active_tab', userTab);
+    } catch {}
+  }, [userTab]);
 
   // Fast Entry Text Box state
   const [customEntryText, setCustomEntryText] = useState<string>('');
@@ -526,6 +540,7 @@ export default function App() {
   // Image Upload & AI Scan states
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanSuccessMessage, setScanSuccessMessage] = useState<string | null>(null);
@@ -562,7 +577,7 @@ export default function App() {
       if (Capacitor.isNativePlatform()) {
         const photo = await CapCamera.getPhoto({
           quality: 90,
-          allowEditing: false,
+          allowEditing: true,
           resultType: CameraResultType.Base64,
           source: CameraSource.Camera,
         });
@@ -596,7 +611,7 @@ export default function App() {
       if (Capacitor.isNativePlatform()) {
         const photo = await CapCamera.getPhoto({
           quality: 90,
-          allowEditing: false,
+          allowEditing: true,
           resultType: CameraResultType.Base64,
           source: CameraSource.Photos,
         });
@@ -984,52 +999,78 @@ export default function App() {
       rankedNumbers.sort((a, b) => b.score - a.score);
 
       const initialStep = Math.min(houseStep, maxHouseCap);
-      const houseAmounts: number[] = new Array(targetHousesCount).fill(initialStep);
-      let remaining = thisParchiTotal - (targetHousesCount * initialStep);
+
+      // User requirement: "har parchi par 1 ya 2 number text amount kae ass pass honi chyea kam ho jada nahi"
+      const anchorAmounts: number[] = [];
+      if (userTab === 'jantri' && maxHouseCap >= 100 && thisParchiTotal >= maxHouseCap) {
+        const numAnchors = Math.random() < 0.5 ? 1 : 2;
+        const minAnchor = Math.max(50, Math.floor((maxHouseCap * 0.8) / 50) * 50);
+        const candidates: number[] = [];
+        for (let a = minAnchor; a <= maxHouseCap; a += 50) {
+          candidates.push(a);
+        }
+        if (candidates.length === 0) candidates.push(maxHouseCap);
+
+        for (let aIdx = 0; aIdx < numAnchors; aIdx++) {
+          const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+          const currentAnchorSum = anchorAmounts.reduce((s, v) => s + v, 0);
+          const remainingHousesNeeded = Math.max(1, targetHousesCount - anchorAmounts.length - 1);
+          if (thisParchiTotal - (currentAnchorSum + chosen) >= remainingHousesNeeded * initialStep) {
+            anchorAmounts.push(chosen);
+          }
+        }
+      }
+
+      const numAnchorsAssigned = anchorAmounts.length;
+      const otherHousesCount = Math.max(1, targetHousesCount - numAnchorsAssigned);
+      const otherHouseAmounts: number[] = new Array(otherHousesCount).fill(initialStep);
+      let remaining = thisParchiTotal - anchorAmounts.reduce((s, v) => s + v, 0) - (otherHousesCount * initialStep);
 
       let loopLimit = 20000;
       while (remaining > 0 && loopLimit-- > 0) {
         const eligibleIndices: number[] = [];
-        for (let i = 0; i < targetHousesCount; i++) {
-          if (houseAmounts[i] < maxHouseCap) {
+        for (let i = 0; i < otherHousesCount; i++) {
+          if (otherHouseAmounts[i] < maxHouseCap) {
             eligibleIndices.push(i);
           }
         }
 
         if (eligibleIndices.length === 0) {
-          if (targetHousesCount < availableNumbers.length) {
-            targetHousesCount++;
-            houseAmounts.push(0);
-            eligibleIndices.push(targetHousesCount - 1);
+          if (otherHousesCount + numAnchorsAssigned < availableNumbers.length) {
+            otherHouseAmounts.push(0);
+            eligibleIndices.push(otherHouseAmounts.length - 1);
           } else {
             break;
           }
         }
 
         const rIdx = eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
-        const maxAdd = maxHouseCap - houseAmounts[rIdx];
+        const maxAdd = maxHouseCap - otherHouseAmounts[rIdx];
         const chunkSteps = (smallAmountsInResult || thisParchiTotal <= 1000)
           ? 1
           : Math.min(Math.floor(remaining / houseStep) || 1, Math.floor(Math.random() * 2) + 1);
         const desiredAdd = chunkSteps * houseStep;
         const addAmount = Math.min(remaining, Math.min(desiredAdd, maxAdd));
 
-        houseAmounts[rIdx] += addAmount;
+        otherHouseAmounts[rIdx] += addAmount;
         remaining -= addAmount;
       }
 
       if (remaining > 0) {
-        for (let i = 0; i < targetHousesCount && remaining > 0; i++) {
-          const room = maxHouseCap - houseAmounts[i];
+        for (let i = 0; i < otherHouseAmounts.length && remaining > 0; i++) {
+          const room = maxHouseCap - otherHouseAmounts[i];
           if (room > 0) {
             const add = Math.min(remaining, room);
-            houseAmounts[i] += add;
+            otherHouseAmounts[i] += add;
             remaining -= add;
           }
         }
       }
 
-      const selectedNumbers = rankedNumbers.slice(0, targetHousesCount).map(r => r.numStr);
+      const houseAmounts = [...anchorAmounts, ...otherHouseAmounts];
+      const actualHousesCount = houseAmounts.length;
+
+      const selectedNumbers = rankedNumbers.slice(0, actualHousesCount).map(r => r.numStr);
       selectedNumbers.forEach(numStr => {
         lastSeenParchi.set(numStr, p);
         appearanceCount.set(numStr, (appearanceCount.get(numStr) ?? 0) + 1);
@@ -1829,17 +1870,28 @@ function renderJantriToCanvas(
                     />
                   </div>
                   <div className="flex-1 space-y-2 w-full">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800 truncate max-w-[200px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-800 truncate max-w-[150px]">
                         {selectedImageFile?.name || 'Selected Image'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={handleClearImage}
-                        className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer"
-                      >
-                        ✕ Remove
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsCropModalOpen(true)}
+                          className="text-xs text-blue-700 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+                          title="Crop photo"
+                        >
+                          <Crop className="w-3.5 h-3.5" />
+                          <span>Crop Photo</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearImage}
+                          className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer px-1 py-1"
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
                     </div>
                     
                     {/* Scan Button */}
@@ -1882,14 +1934,10 @@ function renderJantriToCanvas(
               </div>
             )}
 
-            {/* Extracted Text Box (Editable) */}
+            {/* Extracted Text Box (Cleaned) */}
             <div>
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-1.5">
-                <label htmlFor="scan-entry-textarea" className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                  <Edit3 className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Extracted Numbers & Amounts (Editable):</span>
-                </label>
-                {customEntryText && (
+              {customEntryText && (
+                <div className="flex justify-end mb-1.5">
                   <button
                     type="button"
                     onClick={() => setCustomEntryText('')}
@@ -1899,8 +1947,8 @@ function renderJantriToCanvas(
                     <RotateCcw className="w-3 h-3" />
                     <span>Clear Text</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               <textarea
                 id="scan-entry-textarea"
@@ -1910,23 +1958,22 @@ function renderJantriToCanvas(
                 placeholder="Scanned numbers will appear here automatically (e.g. 12, 45 = 100, 25 = 500). You can also edit or type directly."
                 className="w-full bg-slate-50/70 border border-gray-300 rounded-lg p-2.5 text-xs sm:text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a] focus:bg-white shadow-xs resize-y"
               />
-
-              <div className="mt-2 flex items-center justify-between text-xs flex-wrap gap-2">
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                  {parsedCustomData.filledCount} Boxes Filled (₹{parsedCustomData.totalSum.toLocaleString('en-IN')})
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = document.getElementById('jantri-table-container');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="text-xs font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
-                >
-                  <span>View Filled Jantri Below ↓</span>
-                </button>
-              </div>
             </div>
+
+            {/* Crop Modal */}
+            {selectedImagePreview && (
+              <ImageCropModal
+                isOpen={isCropModalOpen}
+                imageUrl={selectedImagePreview}
+                onClose={() => setIsCropModalOpen(false)}
+                onCropComplete={(croppedFile, croppedDataUrl) => {
+                  setSelectedImageFile(croppedFile);
+                  setSelectedImagePreview(croppedDataUrl);
+                  setScanError(null);
+                  setScanSuccessMessage(null);
+                }}
+              />
+            )}
           </section>
         )}
 
@@ -2045,16 +2092,12 @@ function renderJantriToCanvas(
             <div className="text-sm sm:text-base font-bold text-gray-800">
               Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
-            {isCustomMode && (
-              <div className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 shadow-2xs">
-                {parsedCustomData.filledCount} boxes filled
-              </div>
-            )}
           </div>
         </section>
 
-        {/* Bottom Actions - Parchi Generation Section */}
-        <section id="bottom-actions-section" className="space-y-3 mb-6 sm:mb-8 bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200 shadow-xs">
+        {/* Bottom Actions - Parchi Generation Section (Hidden in Scan Tab) */}
+        {userTab !== 'scan' && (
+          <section id="bottom-actions-section" className="space-y-3 mb-6 sm:mb-8 bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200 shadow-xs">
           <div>
             <label htmlFor="parchi-input" className="block text-xs sm:text-sm font-semibold text-gray-800 mb-1">
               Enter number of jantri or parchi to generate:
@@ -2138,10 +2181,10 @@ function renderJantriToCanvas(
             </button>
           </div>
         </section>
+        )}
 
-        {/* Generated Parchis Display Section - Formatted like user screenshot */}
         {/* Generated Parchis Display Section - Only Classic Parchi Text List */}
-        {generatedParchis.length > 0 && (
+        {userTab !== 'scan' && generatedParchis.length > 0 && (
           <section id="parchi-results-section" className="mt-6 mb-12 bg-white rounded-xl border border-gray-300 shadow-sm p-3.5 sm:p-6">
             {/* Results Section Header */}
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200 flex-wrap gap-3">
