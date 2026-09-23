@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v2.1.0
-          name: Aman Jantri v2.1.0 (Clean First Page Layout)
-          body: "Direct Download APK for Aman Jantri (Android) - Cleaned first page: removed live amount text, 100 boxes (10x10) indicator, 100 boxes x amount calculation text, and grid options settings."
+          tag_name: v2.2.0
+          name: Aman Jantri v2.2.0 (Parchi Fast Text Entry Grid Fill)
+          body: "Direct Download APK for Aman Jantri (Android) - New Feature: Parchi Fast Text Entry Box for quick grid filling supporting single pairs (01-25, 02-50) and multi-number entries (12,50,60,08,07&50) with amount assignment symbols (=, %, #, &, *, -)."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

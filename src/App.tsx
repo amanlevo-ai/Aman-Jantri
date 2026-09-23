@@ -342,6 +342,55 @@ function SingleJantriBoxGrid({
   );
 }
 
+export interface FastEntryResult {
+  amountsMap: Record<number, number>;
+  filledCount: number;
+  totalSum: number;
+}
+
+/**
+ * Fast Entry Parser for Parchi / Jantri:
+ * Supports:
+ * - 01-25, 02-50, 07-90
+ * - 12,50,60,08,07&50 (symbols: =, %, #, &, *, -)
+ * - Mixed entries, multiple lines, commas or spaces
+ */
+export function parseFastEntryText(text: string): FastEntryResult {
+  const amountsMap: Record<number, number> = {};
+  if (!text || !text.trim()) {
+    return { amountsMap, filledCount: 0, totalSum: 0 };
+  }
+
+  const regex = /([^=\%#&\*\n;:]+?)\s*([=\%#&\*\-:/])\s*([0-9]+(?:\.[0-9]+)?)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    const rawNumbers = match[1];
+    const amount = parseFloat(match[3]);
+
+    if (isNaN(amount) || amount < 0) continue;
+
+    const numbers = rawNumbers
+      .split(/[\s,./+]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !isNaN(parseInt(s, 10)))
+      .map((s) => {
+        const n = parseInt(s, 10);
+        return n === 0 ? 100 : n;
+      })
+      .filter((n) => n >= 1 && n <= 100);
+
+    for (const num of numbers) {
+      amountsMap[num] = (amountsMap[num] || 0) + amount;
+    }
+  }
+
+  const filledCount = Object.keys(amountsMap).length;
+  const totalSum = Object.values(amountsMap).reduce((a, b) => a + b, 0);
+
+  return { amountsMap, filledCount, totalSum };
+}
+
 export default function App() {
   // Amount input for filling Jantri (e.g. 500)
   const [amount, setAmount] = useState<string>('500');
@@ -351,6 +400,16 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [generatedParchis, setGeneratedParchis] = useState<ParchiItem[]>([]);
   const [copiedParchiId, setCopiedParchiId] = useState<number | null>(null);
+
+  // Fast Entry Text Box state
+  const [customEntryText, setCustomEntryText] = useState<string>('');
+
+  // Memoized parsed data
+  const parsedCustomData = useMemo(() => {
+    return parseFastEntryText(customEntryText);
+  }, [customEntryText]);
+
+  const isCustomMode = customEntryText.trim().length > 0;
   const [jantriViewMode, setJantriViewMode] = useState<'tabs' | 'all'>('tabs');
   const [activeJantriIndex, setActiveJantriIndex] = useState<number>(0);
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
@@ -469,9 +528,15 @@ export default function App() {
     return rows;
   }, [gridMode]);
 
-  // Grand Total calculation: exactly 100 boxes * amount (e.g. 500 * 100 = 50,000)
-  const numericAmount = parseFloat(amount) || 0;
-  const grandTotal = numericAmount * 100;
+  // Grand Total calculation:
+  // If custom text entry is used, sum of all parsed entries; otherwise 100 * amount
+  const grandTotal = useMemo(() => {
+    if (isCustomMode) {
+      return parsedCustomData.totalSum;
+    }
+    const numericAmount = parseFloat(amount) || 0;
+    return numericAmount * 100;
+  }, [isCustomMode, parsedCustomData.totalSum, amount]);
 
   const setPreset = (val: string) => {
     setAmount(val);
@@ -496,7 +561,7 @@ export default function App() {
     }
 
     if (grandTotal <= 0) {
-      setStatusMessage('Please enter a valid amount above (e.g. 500)');
+      setStatusMessage('Please enter an amount or text entries (e.g. 500 or 01-25)');
       setTimeout(() => setStatusMessage(null), 3500);
       return null;
     }
@@ -1185,6 +1250,79 @@ function renderJantriToCanvas(
           </div>
         </section>
 
+        {/* Parchi Fast Text Entry Box Section */}
+        <section id="fast-entry-section" className="mb-3 sm:mb-4 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-1.5">
+            <label htmlFor="fast-entry-textarea" className="text-xs sm:text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+              <span>Parchi Text Box (Fast Grid Fill):</span>
+            </label>
+            {customEntryText && (
+              <button
+                type="button"
+                onClick={() => setCustomEntryText('')}
+                className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1 cursor-pointer"
+                title="Clear text box"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Clear Text</span>
+              </button>
+            )}
+          </div>
+
+          <textarea
+            id="fast-entry-textarea"
+            rows={2}
+            value={customEntryText}
+            onChange={(e) => setCustomEntryText(e.target.value)}
+            placeholder="Type or paste: e.g. 01-25, 02-50, 07-90 or 12,50,60,08,07&50"
+            className="w-full bg-slate-50/70 border border-gray-300 rounded-lg p-2.5 text-xs sm:text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a] focus:bg-white shadow-xs resize-y"
+          />
+
+          <div className="mt-2 flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap text-gray-500">
+              <span className="text-[11px]">Amount symbols:</span>
+              {['=', '%', '#', '&', '*', '-'].map((sym) => (
+                <span
+                  key={sym}
+                  className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold text-slate-700 text-[11px]"
+                  title={`Symbol represents amount: ${sym}`}
+                >
+                  {sym}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">Quick Test:</span>
+              <button
+                type="button"
+                onClick={() => setCustomEntryText('01-25, 02-50, 07-90')}
+                className="text-[11px] px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 cursor-pointer"
+              >
+                01-25...
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomEntryText('12,50,60,08,07&50')}
+                className="text-[11px] px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 cursor-pointer"
+              >
+                12,50..&50
+              </button>
+            </div>
+          </div>
+
+          {isCustomMode && (
+            <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-xs flex-wrap gap-2">
+              <span className="text-gray-500 text-[11px]">
+                Grid is filled from text box. Clear text to use uniform amount.
+              </span>
+              <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {parsedCustomData.filledCount} Boxes Filled (₹{parsedCustomData.totalSum.toLocaleString('en-IN')})
+              </span>
+            </div>
+          )}
+        </section>
+
         {/* 100 Text Boxes Responsive Grid - Modern Blue Design */}
         <div
           id="jantri-table-container"
@@ -1203,35 +1341,51 @@ function renderJantriToCanvas(
 
             {/* 100 Grid Cells (10 rows x 10 columns) */}
             {gridCells.flatMap((rowCells, rowIndex) =>
-              rowCells.map((cell) => (
-                <div
-                  key={`cell-${cell.label}`}
-                  className={`border-b border-r border-blue-100/90 last:border-r-0 ${
-                    rowIndex === 9 ? 'border-b-0' : ''
-                  } bg-white hover:bg-blue-50/70 transition-colors p-[1.5px] sm:p-1.5 flex flex-col justify-between`}
-                >
-                  {/* Top Badge: Modern Blue Pill Badge */}
-                  <div className="flex items-center justify-start">
-                    <span
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] sm:text-[10px] md:text-[11px] font-bold px-1 sm:px-1.5 py-0.5 rounded-sm select-none leading-none shadow-xs tracking-tight"
-                      title={`Number: ${cell.label}`}
-                    >
-                      {cell.label}
-                    </span>
-                  </div>
+              rowCells.map((cell) => {
+                const cellNum = parseInt(cell.label, 10) === 0 ? 100 : parseInt(cell.label, 10);
+                const hasCustomVal = isCustomMode && parsedCustomData.amountsMap[cellNum] !== undefined;
+                const cellVal = isCustomMode
+                  ? (hasCustomVal ? parsedCustomData.amountsMap[cellNum].toString() : '')
+                  : amount;
 
-                  {/* Bottom: High-Contrast Amount Display */}
-                  <div className="mt-0.5 sm:mt-1 w-full">
-                    <input
-                      type="text"
-                      readOnly
-                      value={amount}
-                      aria-label={`Box ${cell.label}`}
-                      className="w-full text-center font-extrabold text-blue-950 text-[11px] sm:text-xs md:text-sm py-0.5 px-0 bg-transparent border-0 outline-none cursor-default select-all truncate tracking-tight"
-                    />
+                return (
+                  <div
+                    key={`cell-${cell.label}`}
+                    className={`border-b border-r border-blue-100/90 last:border-r-0 ${
+                      rowIndex === 9 ? 'border-b-0' : ''
+                    } ${
+                      hasCustomVal ? 'bg-amber-100/80 shadow-inner' : 'bg-white hover:bg-blue-50/70'
+                    } transition-colors p-[1.5px] sm:p-1.5 flex flex-col justify-between`}
+                  >
+                    {/* Top Badge: Modern Blue Pill Badge */}
+                    <div className="flex items-center justify-start">
+                      <span
+                        className={`${
+                          hasCustomVal
+                            ? 'bg-gradient-to-r from-amber-600 to-amber-700'
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-600'
+                        } text-white text-[9px] sm:text-[10px] md:text-[11px] font-bold px-1 sm:px-1.5 py-0.5 rounded-sm select-none leading-none shadow-xs tracking-tight`}
+                        title={`Number: ${cell.label}`}
+                      >
+                        {cell.label}
+                      </span>
+                    </div>
+
+                    {/* Bottom: High-Contrast Amount Display */}
+                    <div className="mt-0.5 sm:mt-1 w-full">
+                      <input
+                        type="text"
+                        readOnly
+                        value={cellVal}
+                        aria-label={`Box ${cell.label}`}
+                        className={`w-full text-center font-extrabold ${
+                          hasCustomVal ? 'text-amber-950 font-black' : 'text-blue-950'
+                        } text-[11px] sm:text-xs md:text-sm py-0.5 px-0 bg-transparent border-0 outline-none cursor-default select-all truncate tracking-tight`}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -1242,6 +1396,11 @@ function renderJantriToCanvas(
             <div className="text-sm sm:text-base font-bold text-gray-800">
               Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
+            {isCustomMode && (
+              <div className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 shadow-2xs">
+                {parsedCustomData.filledCount} boxes filled
+              </div>
+            )}
           </div>
         </section>
 
