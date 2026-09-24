@@ -2243,28 +2243,30 @@ function renderJantriToCanvas(
             <div className="text-sm sm:text-base font-bold text-gray-800">
               Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleShareCurrentJantri}
-                disabled={grandTotal <= 0 || isSharingCurrent}
-                className="px-3 py-1.5 rounded-lg font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                title="Share Jantri image"
-              >
-                {isSharingCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
-                <span>Share Jantri</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadCurrentJantri}
-                disabled={grandTotal <= 0 || isDownloadingCurrent}
-                className="px-3 py-1.5 rounded-lg font-bold text-xs bg-[#21324a] hover:bg-[#2c4261] text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                title="Download Jantri image"
-              >
-                {isDownloadingCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                <span>Download Jantri</span>
-              </button>
-            </div>
+            {userTab !== 'jantri' && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleShareCurrentJantri}
+                  disabled={grandTotal <= 0 || isSharingCurrent}
+                  className="px-3 py-1.5 rounded-lg font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  title="Share Jantri image"
+                >
+                  {isSharingCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                  <span>Share Jantri</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadCurrentJantri}
+                  disabled={grandTotal <= 0 || isDownloadingCurrent}
+                  className="px-3 py-1.5 rounded-lg font-bold text-xs bg-[#21324a] hover:bg-[#2c4261] text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  title="Download Jantri image"
+                >
+                  {isDownloadingCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  <span>Download Jantri</span>
+                </button>
+              </div>
+            )}
           </div>
         </section>
 

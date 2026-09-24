@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.8.0
-          name: Aman Jantri v3.8.0 (Process Parchi Fixes, Direct Alerts & One-Tap Scanned Photo Import)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Fixed Process Parchi button with explicit alerts on missing amount or numbers and robust mobile auto-scrolling, 2) Fixed maxHouseCap and remaining balance distribution for Custom Jantri, 3) One-tap 'Use numbers from Scanned Photo' button in Custom Jantri, 4) Independent text boxes for Custom Jantri & Upload Picture, 5) Full support for 'into' / 'INTO' syntax, 6) Clean 'Jantri' title on download/share."
+          tag_name: v3.8.1
+          name: Aman Jantri v3.8.1 (Removed Share & Download from Jantri Page Grand Total)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Removed Share Jantri and Download Jantri buttons from the Jantri page Grand Total bar as requested (kept exclusively on Custom Jantri and Upload Picture tabs), 2) Process Parchi button reliability and error alert dialogs, 3) Auto-scroll on parchi generation, 4) One-tap import from scanned photo in Custom Jantri, 5) Independent text boxes."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
