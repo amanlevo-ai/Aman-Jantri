@@ -385,7 +385,7 @@ export interface FastEntryResult {
  * Fast Entry Parser for Parchi / Jantri:
  * Supports:
  * - 01-25, 02-50, 07-90
- * - 12,50,60,08,07&50 (symbols: =, %, #, &, *, -)
+ * - 12,50,60,08,07&50 (symbols: =, %, #, &, *, -, into, INTO)
  * - Mixed entries, multiple lines, commas or spaces
  */
 export function parseFastEntryText(text: string): FastEntryResult {
@@ -394,10 +394,16 @@ export function parseFastEntryText(text: string): FastEntryResult {
     return { amountsMap, filledCount: 0, totalSum: 0 };
   }
 
-  const regex = /([^=\%#&\*\n;:]+?)\s*([=\%#&\*\-:/])\s*([0-9]+(?:\.[0-9]+)?)/g;
+  // Support user requirement: "agar text box mae data kae sath into likha hai capital or small usko mean v amount hai"
+  // Normalize 'into' / 'INTO' / 'Into' (case-insensitive) to ' = '
+  const normalizedText = text.replace(/into/gi, ' = ');
+
+  // Prioritize primary separators (=, %, #, &, *, :, /) over dash (-)
+  // A dash is only treated as amount separator if not followed by a primary separator
+  const regex = /([^=\%#&\*\n;:/]+?)\s*([=\%#&\*:/]|-(?![0-9\s]*[=\%#&\*:/]))\s*([0-9]+(?:\.[0-9]+)?)/g;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(normalizedText)) !== null) {
     const rawNumbers = match[1].trim();
     const separator = match[2];
     const amount = parseFloat(match[3]);
@@ -681,8 +687,16 @@ export default function App() {
         return;
       }
 
-      setCustomEntryText(resultText);
-      const parsed = parseFastEntryText(resultText);
+      // User requirement: "job hum upload mae pic scan ya upload kar rhae hai, result line by line a raha hai, comma dal do ya space dal do plz"
+      // Convert line-by-line result into clean comma-separated format
+      const formattedText = resultText
+        .split(/[\r\n]+/)
+        .map((l) => l.trim().replace(/^,\s*|,\s*$/g, ''))
+        .filter(Boolean)
+        .join(', ');
+
+      setCustomEntryText(formattedText);
+      const parsed = parseFastEntryText(formattedText);
       setScanSuccessMessage(`Recognized ${parsed.filledCount} numbers (₹${parsed.totalSum.toLocaleString('en-IN')} Total)! Jantri populated below.`);
       setStatusMessage(`Parchi scanned successfully! ${parsed.filledCount} numbers added.`);
       setTimeout(() => setStatusMessage(null), 4000);
@@ -949,10 +963,10 @@ export default function App() {
     for (let p = 0; p < count; p++) {
       const thisParchiTotal = parchiTotals[p];
       // Ensure targetHousesCount is at least enough so no house exceeds maxHouseCap
-      const minHousesNeeded = Math.ceil(thisParchiTotal / maxHouseCap);
+      // User requirement: "jab hum parchi bana rahe hai 40-50 parchi bane ge, small amount mae 70-80 parchi bane ge"
       let targetHousesCount = smallAmountsInResult
-        ? Math.floor(Math.random() * 13) + 80
-        : Math.floor(Math.random() * 9) + 60;
+        ? Math.floor(Math.random() * 11) + 70 // 70 to 80 houses
+        : Math.floor(Math.random() * 11) + 40; // 40 to 50 houses
       targetHousesCount = Math.max(targetHousesCount, minHousesNeeded);
       targetHousesCount = Math.min(targetHousesCount, availableNumbers.length);
 
@@ -1199,11 +1213,11 @@ function renderJantriToCanvas(
   ctx.fillStyle = t.header;
   ctx.fillRect(margin, margin, contentWidth, headerHeight);
 
-  // Header Title
+  // Header Title: User requested when downloading/sharing, title says "Jantri" without #1, #2, #3
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 68px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(customTitle || `Jantri #${parchi.parchiNumber}`, margin + 35, margin + 98);
+  ctx.fillText(customTitle || 'Jantri', margin + 35, margin + 98);
 
   // Grid Dimensions (10 rows x 11 cols)
   const gridStartX = margin;
@@ -1380,12 +1394,14 @@ function renderJantriToCanvas(
   const handleShareJantriAsJpg = async (parchi: ParchiItem, customTitle?: string) => {
     try {
       setSharingJantriId(parchi.id);
-      setStatusMessage(`Preparing ${customTitle || `Jantri #${parchi.parchiNumber}`}...`);
+      // User requirement: When sharing/downloading, display title is "Jantri" without #1, #2, #3
+      const displayTitle = customTitle || 'Jantri';
+      setStatusMessage(`Preparing ${displayTitle}...`);
 
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
-      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero, customTitle);
+      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero, displayTitle);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-      const prefix = customTitle ? customTitle.replace(/\s+/g, '_') : `Jantri_${parchi.parchiNumber}`;
+      const prefix = displayTitle.replace(/\s+/g, '_');
       const fileName = `${prefix}_Total_${parchi.totalAmount}.jpg`;
       const base64Data = dataUrl.split(',')[1];
 
@@ -1396,7 +1412,7 @@ function renderJantriToCanvas(
             base64: base64Data,
             fileName: fileName,
           });
-          setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} ready to share!`);
+          setStatusMessage(`${displayTitle} ready to share!`);
           setTimeout(() => setStatusMessage(null), 3000);
           return;
         } catch (nativeErr: any) {
@@ -1413,11 +1429,11 @@ function renderJantriToCanvas(
               path: fileName,
             });
             await Share.share({
-              title: customTitle || `Jantri #${parchi.parchiNumber}`,
+              title: displayTitle,
               files: [uriRes.uri || savedFile.uri],
-              dialogTitle: `Share ${customTitle || `Jantri #${parchi.parchiNumber}`}`,
+              dialogTitle: `Share ${displayTitle}`,
             });
-            setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} shared!`);
+            setStatusMessage(`${displayTitle} shared!`);
             setTimeout(() => setStatusMessage(null), 3000);
             return;
           } catch (fallbackErr: any) {
@@ -1440,9 +1456,9 @@ function renderJantriToCanvas(
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
-              title: customTitle || `Jantri #${parchi.parchiNumber}`,
+              title: displayTitle,
             });
-            setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} shared!`);
+            setStatusMessage(`${displayTitle} shared!`);
             setTimeout(() => setStatusMessage(null), 3000);
             return;
           }
@@ -1462,7 +1478,7 @@ function renderJantriToCanvas(
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} downloaded!`);
+      setStatusMessage(`${displayTitle} downloaded!`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to share Jantri JPG:', err);
@@ -1478,12 +1494,13 @@ function renderJantriToCanvas(
   const handleDownloadJantri = async (parchi: ParchiItem, customTitle?: string) => {
     try {
       setDownloadingJantriId(parchi.id);
-      setStatusMessage(`Saving ${customTitle || `Jantri #${parchi.parchiNumber}`}...`);
+      const displayTitle = customTitle || 'Jantri';
+      setStatusMessage(`Saving ${displayTitle}...`);
 
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
-      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero, customTitle);
+      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero, displayTitle);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-      const prefix = customTitle ? customTitle.replace(/\s+/g, '_') : `Jantri_${parchi.parchiNumber}`;
+      const prefix = displayTitle.replace(/\s+/g, '_');
       const fileName = `${prefix}_Total_${parchi.totalAmount}.jpg`;
       const base64Data = dataUrl.split(',')[1];
 
@@ -1494,7 +1511,7 @@ function renderJantriToCanvas(
             base64: base64Data,
             fileName: fileName,
           });
-          setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} saved to Gallery successfully!`);
+          setStatusMessage(`${displayTitle} saved to Gallery successfully!`);
           setTimeout(() => setStatusMessage(null), 3500);
           return;
         } catch (nativeErr: any) {
@@ -1521,7 +1538,7 @@ function renderJantriToCanvas(
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} saved successfully!`);
+      setStatusMessage(`${displayTitle} saved successfully!`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to download Jantri JPG:', err);
@@ -1857,17 +1874,16 @@ function renderJantriToCanvas(
                 <Edit3 className="w-4 h-4 text-amber-500" />
                 <span>Parchi Text Box:</span>
               </label>
-              {customEntryText && (
-                <button
-                  type="button"
-                  onClick={() => setCustomEntryText('')}
-                  className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                  title="Clear text box"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Clear Text</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setCustomEntryText('')}
+                disabled={!customEntryText}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-2xs"
+                title="Clear text box"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear Text</span>
+              </button>
             </div>
 
             <textarea
@@ -2011,21 +2027,27 @@ function renderJantriToCanvas(
               </div>
             )}
 
-            {/* Extracted Text Box (Cleaned) */}
+            {/* Extracted Text Box with Clear button */}
             <div>
-              {customEntryText && (
-                <div className="flex justify-end mb-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCustomEntryText('')}
-                    className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                    title="Clear text box"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Clear Text</span>
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-gray-700 flex items-center gap-1">
+                  <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Text Box:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomEntryText('');
+                    setScanSuccessMessage(null);
+                  }}
+                  disabled={!customEntryText}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-2xs"
+                  title="Clear text box"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Text</span>
+                </button>
+              </div>
 
               <textarea
                 id="scan-entry-textarea"
@@ -2213,7 +2235,7 @@ function renderJantriToCanvas(
               id="parchi-input"
               type="number"
               min="1"
-              max="50"
+              max="100"
               placeholder="e.g. 10"
               value={parchiNumber}
               onChange={(e) => setParchiNumber(e.target.value)}

@@ -160,15 +160,13 @@ Analyze the image carefully and extract all numbers and their corresponding bett
 Strictly adhere to the following rules:
 
 1. TARGET NUMBERS: Numbers from 00 to 99 (or 1 to 100). Always write single-digit numbers with leading zero (e.g., 01, 05, 09).
-2. OUTPUT FORMAT: For each number or group of numbers sharing the same amount, output a clean line:
+2. OUTPUT FORMAT: For each number or group of numbers sharing the same amount, format as:
    [number] = [amount]
    or:
    [number], [number], [number] = [amount]
+   Separate multiple entries with commas on one line or clean lines:
    Example:
-   02 = 50
-   05, 12, 45, 90 = 100
-   25 = 500
-   01, 02, 03 = 50
+   02 = 50, 05, 12, 45, 90 = 100, 25 = 500, 01, 02, 03 = 50
 
 3. IF THE IMAGE IS A JANTRI GRID/TABLE:
    Extract every house/box that has an amount filled in! Do not skip any filled box. Ignore blank/empty boxes.
