@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.8.3
-          name: Aman Jantri v3.8.3 (High-Accuracy Sequential Jantri Grid & Slip OCR)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) High-accuracy sequential row-by-row OCR reading for Jantri tables and handwritten slips, 2) Clean, uniform 'number = amount' formatting separated by comma without messy mixed commas, 3) 100% exact Jantri grid table recognition and sum preservation, 4) Fixed Process Parchi runtime reliability."
+          tag_name: v3.8.4
+          name: Aman Jantri v3.8.4 (UI Cleanup - Custom Jantri & Results Total)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Removed 'All Results Total' box from Jantri page, 2) Clean Custom Jantri tab with everything below Share & Download buttons removed, 3) High-accuracy sequential row-by-row OCR reading for Jantri tables and handwritten slips."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

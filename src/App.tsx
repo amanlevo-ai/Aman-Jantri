@@ -2272,8 +2272,8 @@ function renderJantriToCanvas(
           </div>
         </section>
 
-        {/* Bottom Actions - Parchi Generation Section (Hidden in Scan Tab) */}
-        {userTab !== 'scan' && (
+        {/* Bottom Actions - Parchi Generation Section (Only in Jantri Tab) */}
+        {userTab === 'jantri' && (
           <section id="bottom-actions-section" className="space-y-3 mb-6 sm:mb-8 bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200 shadow-xs">
           <div>
             <label htmlFor="parchi-input" className="block text-xs sm:text-sm font-semibold text-gray-800 mb-1">
@@ -2360,8 +2360,8 @@ function renderJantriToCanvas(
         </section>
         )}
 
-        {/* Generated Parchis Display Section - Only Classic Parchi Text List */}
-        {userTab !== 'scan' && generatedParchis.length > 0 && (
+        {/* Generated Parchis Display Section - Only Classic Parchi Text List (Only in Jantri Tab) */}
+        {userTab === 'jantri' && generatedParchis.length > 0 && (
           <section id="parchi-results-section" className="mt-6 mb-12 bg-white rounded-xl border border-gray-300 shadow-sm p-3.5 sm:p-6">
             {/* Results Section Header */}
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200 flex-wrap gap-3">
@@ -2437,29 +2437,6 @@ function renderJantriToCanvas(
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Results Aggregate Footer */}
-            <div className="mt-6 pt-4 border-t border-gray-300 flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3.5 rounded-lg">
-              <div className="text-sm font-bold text-gray-700">
-                All Results Total:{' '}
-                <span className="text-base sm:text-lg text-emerald-700 font-mono font-extrabold">
-                  ₹{generatedParchis.reduce((sum, p) => sum + p.totalAmount, 0).toLocaleString('en-IN')}
-                </span>
-                <span className="text-xs text-gray-500 font-normal ml-2">
-                  (Strictly equal to Grand Total ₹{grandTotal.toLocaleString('en-IN')})
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleProcessJantri}
-                  className="text-xs bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Open in Jantri Window</span>
-                </button>
-              </div>
             </div>
           </section>
         )}
