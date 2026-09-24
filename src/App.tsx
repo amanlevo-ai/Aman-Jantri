@@ -689,13 +689,14 @@ export default function App() {
         return;
       }
 
-      // User requirement: "job hum upload mae pic scan ya upload kar rhae hai, result line by line a raha hai, comma dal do ya space dal do plz"
       // Convert line-by-line result into clean comma-separated format
       const formattedText = resultText
         .split(/[\r\n]+/)
         .map((l) => l.trim().replace(/^,\s*|,\s*$/g, ''))
         .filter(Boolean)
-        .join(', ');
+        .join(', ')
+        .replace(/,\s*,+/g, ', ')
+        .replace(/\s*,\s*/g, ', ');
 
       setScanEntryText(formattedText);
       const parsed = parseFastEntryText(formattedText);
