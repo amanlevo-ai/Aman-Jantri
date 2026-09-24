@@ -541,8 +541,9 @@ export default function App() {
     } catch {}
   }, [userTab]);
 
-  // Fast Entry Text Box state
+  // Independent text states for Custom Jantri and Upload Picture (Scan) tabs
   const [customEntryText, setCustomEntryText] = useState<string>('');
+  const [scanEntryText, setScanEntryText] = useState<string>('');
 
   // Image Upload & AI Scan states
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -556,10 +557,11 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Memoized parsed data
+  // Memoized parsed data: cleanly isolated per active tab (Custom Jantri vs Upload Picture)
   const parsedCustomData = useMemo(() => {
-    return parseFastEntryText(customEntryText);
-  }, [customEntryText]);
+    const textToParse = userTab === 'scan' ? scanEntryText : customEntryText;
+    return parseFastEntryText(textToParse);
+  }, [userTab, scanEntryText, customEntryText]);
 
   const isCustomMode = userTab === 'custom' || userTab === 'scan';
 
@@ -695,7 +697,7 @@ export default function App() {
         .filter(Boolean)
         .join(', ');
 
-      setCustomEntryText(formattedText);
+      setScanEntryText(formattedText);
       const parsed = parseFastEntryText(formattedText);
       setScanSuccessMessage(`Recognized ${parsed.filledCount} numbers (₹${parsed.totalSum.toLocaleString('en-IN')} Total)! Jantri populated below.`);
       setStatusMessage(`Parchi scanned successfully! ${parsed.filledCount} numbers added.`);
@@ -2037,10 +2039,10 @@ function renderJantriToCanvas(
                 <button
                   type="button"
                   onClick={() => {
-                    setCustomEntryText('');
+                    setScanEntryText('');
                     setScanSuccessMessage(null);
                   }}
-                  disabled={!customEntryText}
+                  disabled={!scanEntryText}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-2xs"
                   title="Clear text box"
                 >
@@ -2052,8 +2054,8 @@ function renderJantriToCanvas(
               <textarea
                 id="scan-entry-textarea"
                 rows={3}
-                value={customEntryText}
-                onChange={(e) => setCustomEntryText(e.target.value)}
+                value={scanEntryText}
+                onChange={(e) => setScanEntryText(e.target.value)}
                 placeholder="Scanned numbers will appear here automatically (e.g. 12, 45 = 100, 25 = 500). You can also edit or type directly."
                 className="w-full bg-slate-50/70 border border-gray-300 rounded-lg p-2.5 text-xs sm:text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a] focus:bg-white shadow-xs resize-y"
               />

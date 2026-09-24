@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.7.8
-          name: Aman Jantri v3.7.8 (Clear Button, Comma Scan, Into Amount, Clean Jantri Share, 40-50 & 70-80 Parchis)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) One-tap Clear button for text boxes on Custom Jantri and Upload/Scan pages, 2) Scanned image OCR results formatted with clean commas instead of line-by-line, 3) Full support for 'into' / 'INTO' / 'Into' syntax where number after into is the amount (e.g. 12 into 50), 4) Download and Share Jantri headers/files now cleanly labeled 'Jantri' without #1, #2, #3, 5) Parchi generation creates 40-50 houses for normal parchis and 70-80 houses for small amount parchis."
+          tag_name: v3.7.9
+          name: Aman Jantri v3.7.9 (Independent Text Boxes for Custom Jantri & Upload Picture)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Fully isolated text boxes: Custom Jantri and Upload Picture now have independent state so typing in one does not mirror or overwrite the other, 2) One-tap Clear button for each text box, 3) Comma-separated OCR scan results, 4) 'into' / 'INTO' syntax for amounts, 5) Clean 'Jantri' title on download/share, 6) 40-50 & 70-80 parchi houses distribution."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
