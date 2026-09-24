@@ -79,8 +79,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.7.5
-          name: Aman Jantri v3.7.5 (Parchi Top Amount Anchor, Photo Crop & Scan UI Cleanup)
+          tag_name: v3.7.6
+          name: Aman Jantri v3.7.6 (Touch Cropper Auto-Open & No Separate Crop Button)
           body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Every parchi now contains 1-2 numbers close to top text amount (strictly <= top box amount, never exceeding), 2) Photo Crop feature for camera & gallery uploads, 3) Active tab state persistence on app refresh, 4) Ultra-clean Scan tab ending at Grand Total."
           draft: false
           prerelease: false

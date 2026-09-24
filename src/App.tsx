@@ -540,6 +540,8 @@ export default function App() {
   // Image Upload & AI Scan states
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [rawImageFile, setRawImageFile] = useState<File | null>(null);
+  const [rawImagePreview, setRawImagePreview] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -555,13 +557,18 @@ export default function App() {
   const isCustomMode = userTab === 'custom' || userTab === 'scan';
 
   const processSelectedFile = (file: File) => {
-    setSelectedImageFile(file);
     setScanError(null);
     setScanSuccessMessage(null);
+    setRawImageFile(file);
 
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setSelectedImagePreview(ev.target?.result as string);
+      const dataUrl = ev.target?.result as string;
+      setRawImagePreview(dataUrl);
+      setSelectedImageFile(file);
+      setSelectedImagePreview(dataUrl);
+      // Automatically open the touch cropper immediately when photo is chosen/taken!
+      setIsCropModalOpen(true);
     };
     reader.readAsDataURL(file);
   };
@@ -643,6 +650,9 @@ export default function App() {
   const handleClearImage = () => {
     setSelectedImageFile(null);
     setSelectedImagePreview(null);
+    setRawImageFile(null);
+    setRawImagePreview(null);
+    setIsCropModalOpen(false);
     setScanError(null);
     setScanSuccessMessage(null);
     if (fileInputRef.current) {
@@ -1871,27 +1881,16 @@ function renderJantriToCanvas(
                   </div>
                   <div className="flex-1 space-y-2 w-full">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-800 truncate max-w-[150px]">
+                      <span className="text-xs font-bold text-slate-800 truncate max-w-[200px]">
                         {selectedImageFile?.name || 'Selected Image'}
                       </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setIsCropModalOpen(true)}
-                          className="text-xs text-blue-700 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
-                          title="Crop photo"
-                        >
-                          <Crop className="w-3.5 h-3.5" />
-                          <span>Crop Photo</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleClearImage}
-                          className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer px-1 py-1"
-                        >
-                          ✕ Remove
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearImage}
+                        className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        ✕ Remove
+                      </button>
                     </div>
                     
                     {/* Scan Button */}
@@ -1960,15 +1959,23 @@ function renderJantriToCanvas(
               />
             </div>
 
-            {/* Crop Modal */}
-            {selectedImagePreview && (
+            {/* Touch Crop Modal - Opens automatically when photo clicked or uploaded */}
+            {(rawImagePreview || selectedImagePreview) && (
               <ImageCropModal
                 isOpen={isCropModalOpen}
-                imageUrl={selectedImagePreview}
+                imageUrl={rawImagePreview || selectedImagePreview || ''}
                 onClose={() => setIsCropModalOpen(false)}
+                onUseOriginal={() => {
+                  if (rawImageFile && rawImagePreview) {
+                    setSelectedImageFile(rawImageFile);
+                    setSelectedImagePreview(rawImagePreview);
+                  }
+                  setIsCropModalOpen(false);
+                }}
                 onCropComplete={(croppedFile, croppedDataUrl) => {
                   setSelectedImageFile(croppedFile);
                   setSelectedImagePreview(croppedDataUrl);
+                  setIsCropModalOpen(false);
                   setScanError(null);
                   setScanSuccessMessage(null);
                 }}
