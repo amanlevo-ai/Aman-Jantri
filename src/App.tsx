@@ -964,6 +964,7 @@ export default function App() {
 
     for (let p = 0; p < count; p++) {
       const thisParchiTotal = parchiTotals[p];
+      const minHousesNeeded = Math.ceil(thisParchiTotal / maxHouseCap);
       // Ensure targetHousesCount is at least enough so no house exceeds maxHouseCap
       // User requirement: "jab hum parchi bana rahe hai 40-50 parchi bane ge, small amount mae 70-80 parchi bane ge"
       let targetHousesCount = smallAmountsInResult

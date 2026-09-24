@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.8.1
-          name: Aman Jantri v3.8.1 (Removed Share & Download from Jantri Page Grand Total)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Removed Share Jantri and Download Jantri buttons from the Jantri page Grand Total bar as requested (kept exclusively on Custom Jantri and Upload Picture tabs), 2) Process Parchi button reliability and error alert dialogs, 3) Auto-scroll on parchi generation, 4) One-tap import from scanned photo in Custom Jantri, 5) Independent text boxes."
+          tag_name: v3.8.2
+          name: Aman Jantri v3.8.2 (Fix Process Parchi Runtime Error)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Fixed Process Parchi 'minHousesNeeded not defined' runtime error, 2) Process Parchi button reliability and error alert dialogs, 3) Auto-scroll on parchi generation, 4) One-tap import from scanned photo in Custom Jantri, 5) Removed Share and Download from Jantri Page Grand Total (kept exclusively on Custom Jantri and Upload tabs)."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
