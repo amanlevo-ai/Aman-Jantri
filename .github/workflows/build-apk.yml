@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.7.6
-          name: Aman Jantri v3.7.6 (Touch Cropper Auto-Open & No Separate Crop Button)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Every parchi now contains 1-2 numbers close to top text amount (strictly <= top box amount, never exceeding), 2) Photo Crop feature for camera & gallery uploads, 3) Active tab state persistence on app refresh, 4) Ultra-clean Scan tab ending at Grand Total."
+          tag_name: v3.7.7
+          name: Aman Jantri v3.7.7 (Share & Download Jantri for Custom & Upload Tabs)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) One-click Share Jantri and Download Jantri buttons directly on the Grand Total bar for Custom Jantri and Upload/Scan tabs, 2) Automatic full-screen touch photo cropper on camera capture and gallery upload, 3) 1-2 numbers close to top text amount on every parchi without ever exceeding it, 4) Tab persistence on page refresh, 5) Clean scan view ending at Grand Total."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GridMode, ParchiItem, ParchiHouse } from './types';
 import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
@@ -1150,7 +1151,8 @@ function renderJantriToCanvas(
   parchi: ParchiItem,
   gridMode: GridMode,
   themeIndex: number,
-  formatWithLeadingZero: (val: number | string) => string
+  formatWithLeadingZero: (val: number | string) => string,
+  customTitle?: string
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   // High-resolution 2200x2600 px (Ultra-HD, crystal-clear zoom on WhatsApp & Gallery)
@@ -1201,7 +1203,7 @@ function renderJantriToCanvas(
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 68px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`Jantri #${parchi.parchiNumber}`, margin + 35, margin + 98);
+  ctx.fillText(customTitle || `Jantri #${parchi.parchiNumber}`, margin + 35, margin + 98);
 
   // Grid Dimensions (10 rows x 11 cols)
   const gridStartX = margin;
@@ -1375,15 +1377,16 @@ function renderJantriToCanvas(
 }
 
   // Share Jantri as JPG Image (Native Android Share / Web Share / Download)
-  const handleShareJantriAsJpg = async (parchi: ParchiItem) => {
+  const handleShareJantriAsJpg = async (parchi: ParchiItem, customTitle?: string) => {
     try {
       setSharingJantriId(parchi.id);
-      setStatusMessage(`Preparing Jantri #${parchi.parchiNumber}...`);
+      setStatusMessage(`Preparing ${customTitle || `Jantri #${parchi.parchiNumber}`}...`);
 
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
-      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
+      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero, customTitle);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-      const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+      const prefix = customTitle ? customTitle.replace(/\s+/g, '_') : `Jantri_${parchi.parchiNumber}`;
+      const fileName = `${prefix}_Total_${parchi.totalAmount}.jpg`;
       const base64Data = dataUrl.split(',')[1];
 
       // 1. Android Capacitor Native App
@@ -1393,7 +1396,7 @@ function renderJantriToCanvas(
             base64: base64Data,
             fileName: fileName,
           });
-          setStatusMessage(`Jantri #${parchi.parchiNumber} ready to share!`);
+          setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} ready to share!`);
           setTimeout(() => setStatusMessage(null), 3000);
           return;
         } catch (nativeErr: any) {
@@ -1410,11 +1413,11 @@ function renderJantriToCanvas(
               path: fileName,
             });
             await Share.share({
-              title: `Jantri #${parchi.parchiNumber}`,
+              title: customTitle || `Jantri #${parchi.parchiNumber}`,
               files: [uriRes.uri || savedFile.uri],
-              dialogTitle: `Share Jantri #${parchi.parchiNumber}`,
+              dialogTitle: `Share ${customTitle || `Jantri #${parchi.parchiNumber}`}`,
             });
-            setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+            setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} shared!`);
             setTimeout(() => setStatusMessage(null), 3000);
             return;
           } catch (fallbackErr: any) {
@@ -1437,9 +1440,9 @@ function renderJantriToCanvas(
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
-              title: `Jantri #${parchi.parchiNumber}`,
+              title: customTitle || `Jantri #${parchi.parchiNumber}`,
             });
-            setStatusMessage(`Jantri #${parchi.parchiNumber} shared!`);
+            setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} shared!`);
             setTimeout(() => setStatusMessage(null), 3000);
             return;
           }
@@ -1459,7 +1462,7 @@ function renderJantriToCanvas(
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      setStatusMessage(`Jantri #${parchi.parchiNumber} downloaded!`);
+      setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} downloaded!`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to share Jantri JPG:', err);
@@ -1472,15 +1475,16 @@ function renderJantriToCanvas(
   };
 
   // Direct Download Jantri as JPG Image
-  const handleDownloadJantri = async (parchi: ParchiItem) => {
+  const handleDownloadJantri = async (parchi: ParchiItem, customTitle?: string) => {
     try {
       setDownloadingJantriId(parchi.id);
-      setStatusMessage(`Saving Jantri #${parchi.parchiNumber}...`);
+      setStatusMessage(`Saving ${customTitle || `Jantri #${parchi.parchiNumber}`}...`);
 
       const themeIdx = (parchi.id - 1) >= 0 ? (parchi.id - 1) : 0;
-      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero);
+      const canvas = renderJantriToCanvas(parchi, gridMode, themeIdx, formatWithLeadingZero, customTitle);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-      const fileName = `Jantri_${parchi.parchiNumber}_Total_${parchi.totalAmount}.jpg`;
+      const prefix = customTitle ? customTitle.replace(/\s+/g, '_') : `Jantri_${parchi.parchiNumber}`;
+      const fileName = `${prefix}_Total_${parchi.totalAmount}.jpg`;
       const base64Data = dataUrl.split(',')[1];
 
       // 1. Android Capacitor Native App
@@ -1490,7 +1494,7 @@ function renderJantriToCanvas(
             base64: base64Data,
             fileName: fileName,
           });
-          setStatusMessage(`Jantri #${parchi.parchiNumber} saved to Gallery successfully!`);
+          setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} saved to Gallery successfully!`);
           setTimeout(() => setStatusMessage(null), 3500);
           return;
         } catch (nativeErr: any) {
@@ -1517,7 +1521,7 @@ function renderJantriToCanvas(
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      setStatusMessage(`Jantri #${parchi.parchiNumber} saved successfully!`);
+      setStatusMessage(`${customTitle || `Jantri #${parchi.parchiNumber}`} saved successfully!`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to download Jantri JPG:', err);
@@ -1526,6 +1530,80 @@ function renderJantriToCanvas(
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {
       setDownloadingJantriId(null);
+    }
+  };
+
+  const [isSharingCurrent, setIsSharingCurrent] = useState(false);
+  const [isDownloadingCurrent, setIsDownloadingCurrent] = useState(false);
+
+  const getCurrentPageJantriParchi = (): { parchi: ParchiItem; title: string } => {
+    if (userTab === 'custom' || userTab === 'scan') {
+      const houses: ParchiHouse[] = Object.entries(parsedCustomData.amountsMap).map(([k, amt]) => {
+        const num = parseInt(k, 10);
+        const formatted = num === 100 ? '100' : (num < 10 ? `0${num}` : num.toString());
+        return {
+          number: formatted,
+          amount: amt,
+        };
+      });
+      const title = userTab === 'scan' ? 'Scanned Jantri' : 'Custom Jantri';
+      return {
+        parchi: {
+          id: 9999,
+          parchiNumber: 1,
+          houses,
+          totalAmount: parsedCustomData.totalSum,
+        },
+        title,
+      };
+    } else {
+      const amt = parseFloat(amount) || 0;
+      const houses: ParchiHouse[] = [];
+      for (let i = 1; i <= 100; i++) {
+        houses.push({
+          number: i < 10 ? `0${i}` : i.toString(),
+          amount: amt,
+        });
+      }
+      return {
+        parchi: {
+          id: 9999,
+          parchiNumber: 1,
+          houses,
+          totalAmount: amt * 100,
+        },
+        title: 'Aman Jantri',
+      };
+    }
+  };
+
+  const handleShareCurrentJantri = async () => {
+    if (grandTotal <= 0) {
+      setStatusMessage('No amounts to share. Please fill or scan numbers first.');
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    setIsSharingCurrent(true);
+    try {
+      const { parchi, title } = getCurrentPageJantriParchi();
+      await handleShareJantriAsJpg(parchi, title);
+    } finally {
+      setIsSharingCurrent(false);
+    }
+  };
+
+  const handleDownloadCurrentJantri = async () => {
+    if (grandTotal <= 0) {
+      setStatusMessage('No amounts to download. Please fill or scan numbers first.');
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    setIsDownloadingCurrent(true);
+    try {
+      const { parchi, title } = getCurrentPageJantriParchi();
+      await handleDownloadJantri(parchi, title);
+    } finally {
+      setIsDownloadingCurrent(false);
     }
   };
 
@@ -2093,11 +2171,33 @@ function renderJantriToCanvas(
           </div>
         </div>
 
-        {/* Grand Total */}
+        {/* Grand Total & Jantri Actions */}
         <section id="grand-total-section" className="mt-3 sm:mt-4 mb-3 sm:mb-4">
           <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50/50 p-3 sm:p-3.5 rounded-xl border border-blue-200 shadow-xs flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm sm:text-base font-bold text-gray-800">
               Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleShareCurrentJantri}
+                disabled={grandTotal <= 0 || isSharingCurrent}
+                className="px-3 py-1.5 rounded-lg font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                title="Share Jantri image"
+              >
+                {isSharingCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                <span>Share Jantri</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadCurrentJantri}
+                disabled={grandTotal <= 0 || isDownloadingCurrent}
+                className="px-3 py-1.5 rounded-lg font-bold text-xs bg-[#21324a] hover:bg-[#2c4261] text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                title="Download Jantri image"
+              >
+                {isDownloadingCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                <span>Download Jantri</span>
+              </button>
             </div>
           </div>
         </section>
