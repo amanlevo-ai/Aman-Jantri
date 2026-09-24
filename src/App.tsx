@@ -950,9 +950,9 @@ export default function App() {
 
     // Top box amount cap (in Jantri tab, no house in any parchi can exceed this amount!)
     const topBoxAmount = parseFloat(amount);
-    const maxHouseCap = (!isNaN(topBoxAmount) && topBoxAmount > 0)
-      ? topBoxAmount
-      : (userTab === 'custom' || userTab === 'scan' ? 100000 : 500);
+    const maxHouseCap = userTab === 'jantri'
+      ? ((!isNaN(topBoxAmount) && topBoxAmount > 0) ? topBoxAmount : 500)
+      : 100000;
 
     const parchis: ParchiItem[] = [];
     const lastSeenParchi = new Map<string, number>();
@@ -1052,6 +1052,12 @@ export default function App() {
       const otherHousesCount = Math.max(1, targetHousesCount - numAnchorsAssigned);
       const otherHouseAmounts: number[] = new Array(otherHousesCount).fill(initialStep);
       let remaining = thisParchiTotal - anchorAmounts.reduce((s, v) => s + v, 0) - (otherHousesCount * initialStep);
+      if (remaining < 0) {
+        const avail = Math.max(0, thisParchiTotal - anchorAmounts.reduce((s, v) => s + v, 0));
+        const baseEach = Math.floor(avail / otherHousesCount);
+        otherHouseAmounts.fill(baseEach);
+        remaining = avail - (baseEach * otherHousesCount);
+      }
 
       let loopLimit = 20000;
       while (remaining > 0 && loopLimit-- > 0) {
@@ -1127,19 +1133,41 @@ export default function App() {
   };
 
   const handleProcessParchi = () => {
-    const data = executeGeneration();
-    if (!data) return;
-    setGeneratedParchis(data);
-    setIsJantriModalOpen(false);
-    setStatusMessage(`${data.length} parchis generated! Total: ₹${grandTotal.toLocaleString('en-IN')}`);
-    setTimeout(() => setStatusMessage(null), 5000);
-
-    setTimeout(() => {
-      const el = document.getElementById('parchi-results-section');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      if (grandTotal <= 0) {
+        const msg = (userTab === 'custom' || userTab === 'scan')
+          ? 'Please enter or scan numbers in Parchi text box first (e.g. 12=50, 15=100)'
+          : 'Please enter an amount to fill jantri (e.g. 500)';
+        setStatusMessage(msg);
+        alert(msg);
+        return;
       }
-    }, 100);
+
+      const data = executeGeneration();
+      if (!data || data.length === 0) {
+        setStatusMessage('Could not generate parchis. Please check your inputs.');
+        alert('Could not generate parchis. Please check your inputs.');
+        return;
+      }
+
+      setGeneratedParchis(data);
+      setIsJantriModalOpen(false);
+      setStatusMessage(`${data.length} parchis generated! Total: ₹${grandTotal.toLocaleString('en-IN')}`);
+      setTimeout(() => setStatusMessage(null), 6000);
+
+      setTimeout(() => {
+        const el = document.getElementById('parchi-results-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+      }, 150);
+    } catch (err: any) {
+      console.error('Error generating parchis:', err);
+      alert('Error generating parchis: ' + (err?.message || err));
+      setStatusMessage(`Error: ${err?.message || err}`);
+    }
   };
 
   // Handler for Process Jantri:
@@ -1887,6 +1915,20 @@ function renderJantriToCanvas(
                 <span>Clear Text</span>
               </button>
             </div>
+
+            {scanEntryText && !customEntryText && (
+              <div className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomEntryText(scanEntryText)}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                  title="Copy scanned numbers into Custom Jantri"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Use numbers from Scanned Photo ({parseFastEntryText(scanEntryText).filledCount} numbers)</span>
+                </button>
+              </div>
+            )}
 
             <textarea
               id="fast-entry-textarea"
