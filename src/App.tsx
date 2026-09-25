@@ -936,18 +936,18 @@ export default function App() {
       }
     };
 
-    // 3. Option 1: Realistic Market Parchi Generation
+    // 3. Option 1: Realistic Market Parchi Generation (Strict Maximum Cap at topBoxAmount)
     // User Requirement:
     // - Strictly 45 to 55 houses per parchi (never 90)
-    // - 10 to 12 houses with 100 (topBoxAmount)
-    // - Remaining houses with diverse realistic amounts (40, 50, 60, 70, 80, 90, 110, 120, etc.)
-    // - Total balanced around exactAverage (~5,000) preserving Grand Total (10,000).
+    // - Exactly 10 to 12 houses with full 100 (topBoxAmount)
+    // - Remaining houses with diverse realistic amounts STRICTLY <= 100 (e.g. 40, 50, 60, 70, 80, 90)
+    // - Absolutely NO number can exceed 100 (no 110, 120, 130)
+    // - Parchis balanced with each other
 
     const activeHouses = Object.keys(houseBudgets).map(Number).filter(h => houseBudgets[h] > 0);
     const parchiHouses: { number: number; amount: number }[][] = Array.from({ length: count }, () => []);
 
     for (let p = 0; p < count; p++) {
-      const targetSum = parchiTotals[p];
       // Target strictly 45 to 55 houses (or capped by activeHouses)
       const targetCount = Math.min(activeHouses.length, Math.floor(Math.random() * 11) + 45); // 45 to 55
 
@@ -962,46 +962,56 @@ export default function App() {
       const fullHouses = chosenHouses.slice(0, targetFull);
       const remainingHouses = chosenHouses.slice(targetFull);
 
-      let currentSum = 0;
+      // 1. Add 10 to 12 full houses (100)
       for (const h of fullHouses) {
         const fullAmt = houseBudgets[h] || topBoxAmount;
         parchiHouses[p].push({ number: h, amount: fullAmt });
-        currentSum += fullAmt;
       }
 
-      let remSum = targetSum - currentSum;
-      const remCount = remainingHouses.length;
+      // 2. Remaining houses get diverse realistic amounts STRICTLY below topBoxAmount (e.g. 40, 50, 60, 70, 80, 90)
+      const step = (topBoxAmount >= 50) ? 10 : 5;
+      const minAmt = Math.max(step * 2, Math.round((topBoxAmount * 0.3) / step) * step); // e.g. 30 or 40
+      const maxAmt = Math.max(minAmt, topBoxAmount - step); // e.g. 90 (STRICTLY below 100!)
 
-      if (remCount > 0 && remSum > 0) {
-        const avgRem = remSum / remCount;
-        const step = (remSum % 5 === 0) ? 10 : 5;
-        const amounts: number[] = [];
+      const options: number[] = [];
+      for (let a = minAmt; a <= maxAmt; a += step) {
+        options.push(a);
+        if (a >= topBoxAmount * 0.6) options.push(a);
+        if (a >= topBoxAmount * 0.8) options.push(a);
+      }
 
-        for (let i = 0; i < remCount; i++) {
-          const variance = (Math.random() * 60 - 30);
-          let amt = Math.round((avgRem + variance) / step) * step;
-          amt = Math.max(step * 2, amt);
-          // Avoid topBoxAmount so that exactly 10-12 houses have topBoxAmount
-          if (amt === topBoxAmount) amt += (Math.random() < 0.5 ? step : -step);
-          amt = Math.max(step * 2, amt);
-          amounts.push(amt);
-        }
+      for (const h of remainingHouses) {
+        const amt = options[Math.floor(Math.random() * options.length)];
+        parchiHouses[p].push({ number: h, amount: amt });
+      }
+    }
 
-        let diff = remSum - amounts.reduce((a, b) => a + b, 0);
-        let safetyLoop = 0;
-        while (diff !== 0 && safetyLoop < 1000) {
-          safetyLoop++;
-          const idx = Math.floor(Math.random() * amounts.length);
-          const adjustStep = diff > 0 ? step : -step;
-          const nextAmt = amounts[idx] + adjustStep;
-          if (nextAmt >= step * 2 && nextAmt !== topBoxAmount) {
-            amounts[idx] = nextAmt;
-            diff -= adjustStep;
+    // Balance parchis so their totals stay close to each other (within ±0 to 100)
+    if (count === 2) {
+      const sum0 = parchiHouses[0].reduce((s, h) => s + h.amount, 0);
+      const sum1 = parchiHouses[1].reduce((s, h) => s + h.amount, 0);
+      const diff = Math.floor((sum0 - sum1) / 20) * 10;
+
+      if (Math.abs(diff) >= 40) {
+        const pHigher = diff > 0 ? 0 : 1;
+        const pLower = diff > 0 ? 1 : 0;
+        let toShift = Math.abs(diff);
+        const step = (topBoxAmount >= 50) ? 10 : 5;
+
+        for (const item of parchiHouses[pHigher]) {
+          if (toShift < step) break;
+          if (item.amount > step * 3 && item.amount < topBoxAmount) {
+            item.amount -= step;
+            toShift -= step;
           }
         }
-
-        for (let i = 0; i < remCount; i++) {
-          parchiHouses[p].push({ number: remainingHouses[i], amount: amounts[i] });
+        toShift = Math.abs(diff);
+        for (const item of parchiHouses[pLower]) {
+          if (toShift < step) break;
+          if (item.amount <= topBoxAmount - (step * 2)) {
+            item.amount += step;
+            toShift -= step;
+          }
         }
       }
     }
