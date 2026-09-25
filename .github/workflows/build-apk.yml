@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.8.7
-          name: Aman Jantri v3.8.7 (5-7 Full Amount Houses + Shuffled Split Numbers)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Exactly 5 to 7 houses per parchi with the FULL master amount (e.g. 100), 2) All remaining houses shuffled across diverse discrete amounts (20, 30, 40, 50, 60, 70, 80), 3) Strict budget conservation per house <= master amount across all parchis, 4) Balanced parchi totals strictly preserving Grand Total."
+          tag_name: v3.8.8
+          name: Aman Jantri v3.8.8 (Strictly 45-55 Houses + 10-12 Full 100s + Realistic Shuffled Amounts)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Strictly 45 to 55 houses per parchi (never 90), 2) Exactly 10 to 12 houses with full 100 amount, 3) Remaining houses shuffled with realistic market amounts (40, 50, 60, 70, 80, 90, 110, 120, etc.), 4) Balanced parchi totals around exact average preserving Grand Total."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

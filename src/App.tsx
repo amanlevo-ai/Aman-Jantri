@@ -936,80 +936,73 @@ export default function App() {
       }
     };
 
-    // 3. Multi-Parchi Matrix Partition:
-    // User Requirement: "100 v ana chyea 5-7 house mai (mean total amount)" + diverse shuffled amounts (20, 30, 40, 50, 60, 70, 80)
-    
-    // Determine target houses count per parchi:
-    const baseHouses = smallAmountsInResult
-      ? Math.floor(Math.random() * 11) + 60 // 60 to 70
-      : Math.floor(Math.random() * 11) + 40; // 40 to 50
-
-    const minHousesForVariety = Math.ceil(exactAverage / (topBoxAmount * 0.72));
-    const targetHouses = Math.min(100, Math.max(baseHouses, minHousesForVariety));
+    // 3. Option 1: Realistic Market Parchi Generation
+    // User Requirement:
+    // - Strictly 45 to 55 houses per parchi (never 90)
+    // - 10 to 12 houses with 100 (topBoxAmount)
+    // - Remaining houses with diverse realistic amounts (40, 50, 60, 70, 80, 90, 110, 120, etc.)
+    // - Total balanced around exactAverage (~5,000) preserving Grand Total (10,000).
 
     const activeHouses = Object.keys(houseBudgets).map(Number).filter(h => houseBudgets[h] > 0);
-    // Shuffle active houses randomly
-    activeHouses.sort(() => Math.random() - 0.5);
-
     const parchiHouses: { number: number; amount: number }[][] = Array.from({ length: count }, () => []);
-    const parchiSums = new Array(count).fill(0);
 
-    // Step A: Reserve 5 to 7 houses per parchi with the FULL total amount (e.g. 100)
-    let houseCursor = 0;
     for (let p = 0; p < count; p++) {
-      const maxFullPossible = Math.min(7, Math.floor(activeHouses.length / count));
-      const targetFull = Math.min(maxFullPossible, Math.floor(Math.random() * 3) + 5); // 5, 6, or 7 full amount houses
-      
-      for (let f = 0; f < targetFull && houseCursor < activeHouses.length; f++) {
-        const h = activeHouses[houseCursor++];
-        const fullAmt = houseBudgets[h];
+      const targetSum = parchiTotals[p];
+      // Target strictly 45 to 55 houses (or capped by activeHouses)
+      const targetCount = Math.min(activeHouses.length, Math.floor(Math.random() * 11) + 45); // 45 to 55
+
+      // Shuffle active houses for this parchi
+      const shuffled = [...activeHouses].sort(() => Math.random() - 0.5);
+      const chosenHouses = shuffled.slice(0, targetCount);
+
+      // Strictly 10 to 12 full amount houses (or scaled if total targetCount is small)
+      const maxFullPossible = Math.min(12, Math.floor(targetCount * 0.28));
+      const targetFull = Math.max(5, Math.min(maxFullPossible, Math.floor(Math.random() * 3) + 10)); // 10, 11, or 12
+
+      const fullHouses = chosenHouses.slice(0, targetFull);
+      const remainingHouses = chosenHouses.slice(targetFull);
+
+      let currentSum = 0;
+      for (const h of fullHouses) {
+        const fullAmt = houseBudgets[h] || topBoxAmount;
         parchiHouses[p].push({ number: h, amount: fullAmt });
-        parchiSums[p] += fullAmt;
+        currentSum += fullAmt;
       }
-    }
 
-    // Step B: Partition remaining houses across parchis with diverse shuffled amounts (20, 30, 40, 50, 60, 70, 80)
-    const splitHouses = activeHouses.slice(houseCursor);
-    const splitSlotsNeeded = count * Math.max(1, targetHouses - 6);
-    const avgSlotsPerSplitHouse = splitHouses.length > 0 ? splitSlotsNeeded / splitHouses.length : 1;
+      let remSum = targetSum - currentSum;
+      const remCount = remainingHouses.length;
 
-    for (const h of splitHouses) {
-      const budget = houseBudgets[h];
-      let numAppearances = Math.max(1, Math.round(avgSlotsPerSplitHouse + (Math.random() * 0.6 - 0.3)));
-      if (count === 2) {
-        numAppearances = 2; // In 2 parchis, all split houses appear in both parchis with diverse pairs!
-      }
-      numAppearances = Math.min(count, numAppearances);
+      if (remCount > 0 && remSum > 0) {
+        const avgRem = remSum / remCount;
+        const step = (remSum % 5 === 0) ? 10 : 5;
+        const amounts: number[] = [];
 
-      const chunks: number[] = [];
-      let rem = budget;
-      const step = (budget >= 50) ? 10 : 5;
-
-      for (let i = 0; i < numAppearances - 1; i++) {
-        const maxPart = rem - (numAppearances - 1 - i) * step;
-        if (maxPart <= step) {
-          chunks.push(step);
-          rem -= step;
-        } else {
-          const numSteps = Math.floor(maxPart / step);
-          const chosenSteps = Math.floor(Math.random() * (numSteps - 1)) + 1;
-          const part = chosenSteps * step;
-          chunks.push(part);
-          rem -= part;
+        for (let i = 0; i < remCount; i++) {
+          const variance = (Math.random() * 60 - 30);
+          let amt = Math.round((avgRem + variance) / step) * step;
+          amt = Math.max(step * 2, amt);
+          // Avoid topBoxAmount so that exactly 10-12 houses have topBoxAmount
+          if (amt === topBoxAmount) amt += (Math.random() < 0.5 ? step : -step);
+          amt = Math.max(step * 2, amt);
+          amounts.push(amt);
         }
-      }
-      chunks.push(rem);
-      chunks.sort(() => Math.random() - 0.5);
 
-      // Assign chunks to distinct parchis with lowest current sum
-      const parchiIndices = Array.from({ length: count }, (_, i) => i);
-      parchiIndices.sort((a, b) => parchiSums[a] - parchiSums[b]);
+        let diff = remSum - amounts.reduce((a, b) => a + b, 0);
+        let safetyLoop = 0;
+        while (diff !== 0 && safetyLoop < 1000) {
+          safetyLoop++;
+          const idx = Math.floor(Math.random() * amounts.length);
+          const adjustStep = diff > 0 ? step : -step;
+          const nextAmt = amounts[idx] + adjustStep;
+          if (nextAmt >= step * 2 && nextAmt !== topBoxAmount) {
+            amounts[idx] = nextAmt;
+            diff -= adjustStep;
+          }
+        }
 
-      for (let c = 0; c < chunks.length; c++) {
-        const pIdx = parchiIndices[c];
-        const amt = chunks[c];
-        parchiHouses[pIdx].push({ number: h, amount: amt });
-        parchiSums[pIdx] += amt;
+        for (let i = 0; i < remCount; i++) {
+          parchiHouses[p].push({ number: remainingHouses[i], amount: amounts[i] });
+        }
       }
     }
 
