@@ -942,78 +942,88 @@ export default function App() {
     // - Exactly 10 to 12 houses with full 100 (topBoxAmount)
     // - Remaining houses with diverse realistic amounts STRICTLY <= 100 (e.g. 40, 50, 60, 70, 80, 90)
     // - Absolutely NO number can exceed 100 (no 110, 120, 130)
+    // 3. Option 1: Realistic Market Parchi Generation (Strict Cross-Parchi House Budget Conservation)
+    // User Core Rule:
+    // - Strictly 45 to 55 houses per parchi (never 90)
+    // - Exactly 10 to 12 houses with full 100 (topBoxAmount)
+    // - If a number gets 100 in one parchi, it MUST be 0 (blank) in all other parchis!
+    // - For ANY number, the sum across all parchis can NEVER exceed topBoxAmount (<= 100)
+    // - Remaining houses get diverse realistic amounts (e.g. 40, 50, 60, 70, 80, 90)
     // - Parchis balanced with each other
 
     const activeHouses = Object.keys(houseBudgets).map(Number).filter(h => houseBudgets[h] > 0);
+    const shuffledActive = [...activeHouses].sort(() => Math.random() - 0.5);
+
     const parchiHouses: { number: number; amount: number }[][] = Array.from({ length: count }, () => []);
+    const houseAllocation: Record<number, Record<number, number>> = {};
+    for (const h of activeHouses) houseAllocation[h] = {};
 
+    // Target strictly 45 to 55 houses per parchi
+    const targetCounts: number[] = [];
     for (let p = 0; p < count; p++) {
-      // Target strictly 45 to 55 houses (or capped by activeHouses)
-      const targetCount = Math.min(activeHouses.length, Math.floor(Math.random() * 11) + 45); // 45 to 55
+      targetCounts.push(Math.min(activeHouses.length, Math.floor(Math.random() * 11) + 45)); // 45 to 55
+    }
 
-      // Shuffle active houses for this parchi
-      const shuffled = [...activeHouses].sort(() => Math.random() - 0.5);
-      const chosenHouses = shuffled.slice(0, targetCount);
-
-      // Strictly 10 to 12 full amount houses (or scaled if total targetCount is small)
-      const maxFullPossible = Math.min(12, Math.floor(targetCount * 0.28));
-      const targetFull = Math.max(5, Math.min(maxFullPossible, Math.floor(Math.random() * 3) + 10)); // 10, 11, or 12
-
-      const fullHouses = chosenHouses.slice(0, targetFull);
-      const remainingHouses = chosenHouses.slice(targetFull);
-
-      // 1. Add 10 to 12 full houses (100)
-      for (const h of fullHouses) {
+    // Step 1: Assign 10 to 12 full houses per parchi (Completely disjoint across all parchis!)
+    // If house h gets 100 in parchi p, it gets 0 (blank) in all other parchis!
+    let cursor = 0;
+    for (let p = 0; p < count; p++) {
+      const maxFull = Math.min(12, Math.floor(targetCounts[p] * 0.28));
+      const targetFull = Math.max(5, Math.min(maxFull, Math.floor(Math.random() * 3) + 10)); // 10, 11, or 12
+      for (let f = 0; f < targetFull && cursor < shuffledActive.length; f++) {
+        const h = shuffledActive[cursor++];
         const fullAmt = houseBudgets[h] || topBoxAmount;
         parchiHouses[p].push({ number: h, amount: fullAmt });
-      }
-
-      // 2. Remaining houses get diverse realistic amounts STRICTLY below topBoxAmount (e.g. 40, 50, 60, 70, 80, 90)
-      const step = (topBoxAmount >= 50) ? 10 : 5;
-      const minAmt = Math.max(step * 2, Math.round((topBoxAmount * 0.3) / step) * step); // e.g. 30 or 40
-      const maxAmt = Math.max(minAmt, topBoxAmount - step); // e.g. 90 (STRICTLY below 100!)
-
-      const options: number[] = [];
-      for (let a = minAmt; a <= maxAmt; a += step) {
-        options.push(a);
-        if (a >= topBoxAmount * 0.6) options.push(a);
-        if (a >= topBoxAmount * 0.8) options.push(a);
-      }
-
-      for (const h of remainingHouses) {
-        const amt = options[Math.floor(Math.random() * options.length)];
-        parchiHouses[p].push({ number: h, amount: amt });
+        houseAllocation[h][p] = fullAmt;
       }
     }
 
-    // Balance parchis so their totals stay close to each other (within ±0 to 100)
-    if (count === 2) {
-      const sum0 = parchiHouses[0].reduce((s, h) => s + h.amount, 0);
-      const sum1 = parchiHouses[1].reduce((s, h) => s + h.amount, 0);
-      const diff = Math.floor((sum0 - sum1) / 20) * 10;
+    // Step 2: Pool of remaining houses not used as full houses
+    const pool = shuffledActive.slice(cursor);
+    const step = (topBoxAmount >= 50) ? 10 : 5;
 
-      if (Math.abs(diff) >= 40) {
-        const pHigher = diff > 0 ? 0 : 1;
-        const pLower = diff > 0 ? 1 : 0;
-        let toShift = Math.abs(diff);
-        const step = (topBoxAmount >= 50) ? 10 : 5;
+    // Fill remaining slots for each parchi ensuring sum of any house across all parchis <= houseBudgets[h]
+    while (true) {
+      const needy = Array.from({ length: count }, (_, i) => i).filter(p => parchiHouses[p].length < targetCounts[p]);
+      if (needy.length === 0) break;
 
-        for (const item of parchiHouses[pHigher]) {
-          if (toShift < step) break;
-          if (item.amount > step * 3 && item.amount < topBoxAmount) {
-            item.amount -= step;
-            toShift -= step;
-          }
-        }
-        toShift = Math.abs(diff);
-        for (const item of parchiHouses[pLower]) {
-          if (toShift < step) break;
-          if (item.amount <= topBoxAmount - (step * 2)) {
-            item.amount += step;
-            toShift -= step;
-          }
-        }
+      // Pick needy parchi with lowest current sum
+      needy.sort((a, b) => {
+        const sumA = parchiHouses[a].reduce((s, h) => s + h.amount, 0);
+        const sumB = parchiHouses[b].reduce((s, h) => s + h.amount, 0);
+        return sumA - sumB;
+      });
+      const p = needy[0];
+
+      // Find pool houses not yet in parchi p with remaining budget >= step * 2
+      const currentInP = new Set(parchiHouses[p].map(x => x.number));
+      const available = pool.filter(h => {
+        if (currentInP.has(h)) return false;
+        const used = Object.values(houseAllocation[h]).reduce((a, b) => a + b, 0);
+        const budget = houseBudgets[h] || topBoxAmount;
+        return (budget - used) >= step * 2;
+      });
+
+      if (available.length === 0) break; // no more capacity available
+
+      const h = available[Math.floor(Math.random() * available.length)];
+      const budget = houseBudgets[h] || topBoxAmount;
+      const used = Object.values(houseAllocation[h]).reduce((a, b) => a + b, 0);
+      const rem = budget - used;
+
+      const minA = step * 2; // e.g. 20
+      const maxA = Math.min(rem, budget - step); // strictly < budget! (e.g. 90 max)
+      const options: number[] = [];
+      for (let a = minA; a <= maxA; a += step) {
+        options.push(a);
+        if (a >= budget * 0.5) options.push(a);
       }
+
+      let amt = options.length > 0 ? options[Math.floor(Math.random() * options.length)] : minA;
+      amt = Math.min(amt, rem);
+
+      parchiHouses[p].push({ number: h, amount: amt });
+      houseAllocation[h][p] = amt;
     }
 
     // Build final parchis list

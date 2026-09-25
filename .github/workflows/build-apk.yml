@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.8.9
-          name: Aman Jantri v3.8.9 (Strict Cap <= 100, 45-55 Houses, 10-12 Full 100s)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Strictly 45 to 55 houses per parchi (never 90), 2) Exactly 10 to 12 houses with 100, 3) All remaining houses strictly below 100 (40, 50, 60, 70, 80, 90) - absolutely NO number above 100, 4) Balanced parchi totals."
+          tag_name: v3.9.0
+          name: Aman Jantri v3.9.0 (Strict Cross-Parchi House Conservation, 45-55 Houses, 10-12 Full 100s)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Strict Cross-Parchi House Conservation: If a number is 100 in one parchi, it is 0 (BLANK) in all other parchis! 2) Sum across all parchis for ANY house is strictly <= master amount (<= 100), 3) Strictly 45 to 55 houses per parchi (never 90), 4) Exactly 10 to 12 houses with 100, 5) Remaining houses shuffled with realistic amounts (40, 50, 60, 70, 80, 90)."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
