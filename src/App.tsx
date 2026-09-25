@@ -936,132 +936,84 @@ export default function App() {
       }
     };
 
-    // 3. Track remaining budget for each house across all parchis
-    const remainingBudget: Record<number, number> = { ...houseBudgets };
-    const appearanceCount: Record<number, number> = {};
-    for (let i = 1; i <= 100; i++) appearanceCount[i] = 0;
+    // 3. Multi-Parchi Matrix Partition for realistic shuffled amounts (10, 20, 30, 40, 50, 60, 70, 80, 100)
+    // Determine target houses count per parchi:
+    let baseHouses = smallAmountsInResult
+      ? Math.floor(Math.random() * 11) + 60 // 60 to 70
+      : Math.floor(Math.random() * 11) + 40; // 40 to 50
 
-    const parchis: ParchiItem[] = [];
+    // If count is small (like 2 or 3), expand houses so average amount isn't forced to 100
+    const minHousesForVariety = Math.ceil(exactAverage / (topBoxAmount * 0.72));
+    const targetHouses = Math.min(100, Math.max(baseHouses, minHousesForVariety));
 
-    for (let p = 0; p < count; p++) {
-      const thisParchiTarget = parchiTotals[p];
-      const isLastParchi = (p === count - 1);
+    const totalSlots = count * targetHouses;
+    const activeHouses = Object.keys(houseBudgets).map(Number).filter(h => houseBudgets[h] > 0);
+    const avgSlotsPerHouse = activeHouses.length > 0 ? totalSlots / activeHouses.length : 1;
 
-      // Eligible houses are those with remaining budget > 0
-      const eligibleHouses = Object.keys(remainingBudget)
-        .map(Number)
-        .filter(h => remainingBudget[h] > 0);
-
-      // Target houses count: normal 40 to 50, small amounts 60 to 70
-      let targetHouses = smallAmountsInResult
-        ? Math.floor(Math.random() * 11) + 60 // 60 to 70
-        : Math.floor(Math.random() * 11) + 40; // 40 to 50
-
-      if (isLastParchi) {
-        targetHouses = Math.max(targetHouses, eligibleHouses.length);
+    // Split each active house's budget into discrete chunks across parchis
+    const houseSlices: Record<number, number[]> = {};
+    for (const h of activeHouses) {
+      const budget = houseBudgets[h];
+      let numAppearances = Math.max(1, Math.round(avgSlotsPerHouse + (Math.random() * 0.6 - 0.3)));
+      if (count === 2) {
+        // For 2 parchis, 65% of houses appear in both parchis with diverse amounts (30/70, 40/60, 50/50, 20/80)
+        numAppearances = Math.random() < 0.65 ? 2 : 1;
       }
-      targetHouses = Math.min(targetHouses, eligibleHouses.length);
+      numAppearances = Math.min(count, numAppearances);
 
-      // Prioritize houses that appeared fewer times
-      eligibleHouses.sort((a, b) => {
-        if (appearanceCount[a] !== appearanceCount[b]) {
-          return appearanceCount[a] - appearanceCount[b];
-        }
-        return Math.random() - 0.5;
-      });
+      const chunks: number[] = [];
+      let rem = budget;
+      const step = (budget >= 50) ? 10 : 5;
 
-      const chosenHouses = eligibleHouses.slice(0, targetHouses);
-
-      // Determine step size
-      let step = 10;
-      if (topBoxAmount >= 50 && thisParchiTarget >= targetHouses * 50) step = 50;
-      else if (topBoxAmount >= 25 && thisParchiTarget >= targetHouses * 25) step = 25;
-      else if (topBoxAmount >= 10 && thisParchiTarget >= targetHouses * 10) step = 10;
-      else step = 5;
-
-      if (smallAmountsInResult) {
-        if (topBoxAmount >= 25 && thisParchiTarget >= targetHouses * 25) step = 25;
-        else if (topBoxAmount >= 10) step = 10;
-        else step = 5;
-      }
-
-      const parchiHouseAmounts: Record<number, number> = {};
-      let currentAllocatedSum = 0;
-
-      if (isLastParchi) {
-        for (const h of chosenHouses) {
-          parchiHouseAmounts[h] = remainingBudget[h];
-          currentAllocatedSum += remainingBudget[h];
-        }
-      } else {
-        for (const h of chosenHouses) {
-          const initial = Math.min(step, remainingBudget[h]);
-          parchiHouseAmounts[h] = initial;
-          currentAllocatedSum += initial;
-        }
-
-        let needMore = thisParchiTarget - currentAllocatedSum;
-        let iterations = 0;
-        while (needMore > 0 && iterations < 2000) {
-          iterations++;
-          const expandable = chosenHouses.filter(
-            h => remainingBudget[h] - parchiHouseAmounts[h] >= step
-          );
-          if (expandable.length === 0) break;
-
-          const h = expandable[Math.floor(Math.random() * expandable.length)];
-          const add = Math.min(step, needMore, remainingBudget[h] - parchiHouseAmounts[h]);
-          if (add <= 0) break;
-
-          parchiHouseAmounts[h] += add;
-          currentAllocatedSum += add;
-          needMore -= add;
-        }
-
-        if (needMore > 0) {
-          const unusedEligible = eligibleHouses.filter(h => !chosenHouses.includes(h));
-          for (const h of unusedEligible) {
-            if (needMore <= 0) break;
-            const add = Math.min(needMore, remainingBudget[h]);
-            if (add > 0) {
-              chosenHouses.push(h);
-              parchiHouseAmounts[h] = add;
-              currentAllocatedSum += add;
-              needMore -= add;
-            }
-          }
+      for (let i = 0; i < numAppearances - 1; i++) {
+        const maxPart = rem - (numAppearances - 1 - i) * step;
+        if (maxPart <= step) {
+          chunks.push(step);
+          rem -= step;
+        } else {
+          const numSteps = Math.floor(maxPart / step);
+          const chosenSteps = Math.floor(Math.random() * (numSteps - 1)) + 1;
+          const part = chosenSteps * step;
+          chunks.push(part);
+          rem -= part;
         }
       }
-
-      // Deduct allocated amounts from remainingBudget
-      for (const h of chosenHouses) {
-        const amt = parchiHouseAmounts[h];
-        if (amt > 0) {
-          remainingBudget[h] -= amt;
-          appearanceCount[h]++;
-        }
-      }
-
-      // Build parchi house list
-      const houses: ParchiHouse[] = chosenHouses
-        .filter(h => parchiHouseAmounts[h] > 0)
-        .map(h => ({
-          number: getHouseLabel(h),
-          amount: parchiHouseAmounts[h],
-        }));
-
-      // Sort houses numerically for clean presentation
-      houses.sort((a, b) => parseInt(a.number, 10) - parseInt(b.number, 10));
-
-      const finalParchiSum = houses.reduce((s, h) => s + h.amount, 0);
-
-      parchis.push({
-        id: p + 1,
-        parchiNumber: p + 1,
-        houses,
-        totalAmount: finalParchiSum,
-      });
+      chunks.push(rem);
+      chunks.sort(() => Math.random() - 0.5);
+      houseSlices[h] = chunks;
     }
+
+    // Distribute chunks across distinct parchis
+    const parchiHouses: { number: number; amount: number }[][] = Array.from({ length: count }, () => []);
+    const parchiSums = new Array(count).fill(0);
+
+    for (const h of activeHouses) {
+      const chunks = houseSlices[h];
+      const parchiIndices = Array.from({ length: count }, (_, i) => i);
+      parchiIndices.sort((a, b) => parchiSums[a] - parchiSums[b]);
+
+      for (let c = 0; c < chunks.length; c++) {
+        const pIdx = parchiIndices[c];
+        const amt = chunks[c];
+        parchiHouses[pIdx].push({ number: h, amount: amt });
+        parchiSums[pIdx] += amt;
+      }
+    }
+
+    // Build final parchis list
+    const parchis: ParchiItem[] = parchiHouses.map((housesList, pIdx) => {
+      housesList.sort((a, b) => a.number - b.number);
+      const finalHouses: ParchiHouse[] = housesList.map(h => ({
+        number: getHouseLabel(h.number),
+        amount: h.amount,
+      }));
+      return {
+        id: pIdx + 1,
+        parchiNumber: pIdx + 1,
+        houses: finalHouses,
+        totalAmount: housesList.reduce((s, h) => s + h.amount, 0),
+      };
+    });
 
     return parchis;
   };
