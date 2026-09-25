@@ -936,28 +936,48 @@ export default function App() {
       }
     };
 
-    // 3. Multi-Parchi Matrix Partition for realistic shuffled amounts (10, 20, 30, 40, 50, 60, 70, 80, 100)
+    // 3. Multi-Parchi Matrix Partition:
+    // User Requirement: "100 v ana chyea 5-7 house mai (mean total amount)" + diverse shuffled amounts (20, 30, 40, 50, 60, 70, 80)
+    
     // Determine target houses count per parchi:
-    let baseHouses = smallAmountsInResult
+    const baseHouses = smallAmountsInResult
       ? Math.floor(Math.random() * 11) + 60 // 60 to 70
       : Math.floor(Math.random() * 11) + 40; // 40 to 50
 
-    // If count is small (like 2 or 3), expand houses so average amount isn't forced to 100
     const minHousesForVariety = Math.ceil(exactAverage / (topBoxAmount * 0.72));
     const targetHouses = Math.min(100, Math.max(baseHouses, minHousesForVariety));
 
-    const totalSlots = count * targetHouses;
     const activeHouses = Object.keys(houseBudgets).map(Number).filter(h => houseBudgets[h] > 0);
-    const avgSlotsPerHouse = activeHouses.length > 0 ? totalSlots / activeHouses.length : 1;
+    // Shuffle active houses randomly
+    activeHouses.sort(() => Math.random() - 0.5);
 
-    // Split each active house's budget into discrete chunks across parchis
-    const houseSlices: Record<number, number[]> = {};
-    for (const h of activeHouses) {
+    const parchiHouses: { number: number; amount: number }[][] = Array.from({ length: count }, () => []);
+    const parchiSums = new Array(count).fill(0);
+
+    // Step A: Reserve 5 to 7 houses per parchi with the FULL total amount (e.g. 100)
+    let houseCursor = 0;
+    for (let p = 0; p < count; p++) {
+      const maxFullPossible = Math.min(7, Math.floor(activeHouses.length / count));
+      const targetFull = Math.min(maxFullPossible, Math.floor(Math.random() * 3) + 5); // 5, 6, or 7 full amount houses
+      
+      for (let f = 0; f < targetFull && houseCursor < activeHouses.length; f++) {
+        const h = activeHouses[houseCursor++];
+        const fullAmt = houseBudgets[h];
+        parchiHouses[p].push({ number: h, amount: fullAmt });
+        parchiSums[p] += fullAmt;
+      }
+    }
+
+    // Step B: Partition remaining houses across parchis with diverse shuffled amounts (20, 30, 40, 50, 60, 70, 80)
+    const splitHouses = activeHouses.slice(houseCursor);
+    const splitSlotsNeeded = count * Math.max(1, targetHouses - 6);
+    const avgSlotsPerSplitHouse = splitHouses.length > 0 ? splitSlotsNeeded / splitHouses.length : 1;
+
+    for (const h of splitHouses) {
       const budget = houseBudgets[h];
-      let numAppearances = Math.max(1, Math.round(avgSlotsPerHouse + (Math.random() * 0.6 - 0.3)));
+      let numAppearances = Math.max(1, Math.round(avgSlotsPerSplitHouse + (Math.random() * 0.6 - 0.3)));
       if (count === 2) {
-        // For 2 parchis, 65% of houses appear in both parchis with diverse amounts (30/70, 40/60, 50/50, 20/80)
-        numAppearances = Math.random() < 0.65 ? 2 : 1;
+        numAppearances = 2; // In 2 parchis, all split houses appear in both parchis with diverse pairs!
       }
       numAppearances = Math.min(count, numAppearances);
 
@@ -980,15 +1000,8 @@ export default function App() {
       }
       chunks.push(rem);
       chunks.sort(() => Math.random() - 0.5);
-      houseSlices[h] = chunks;
-    }
 
-    // Distribute chunks across distinct parchis
-    const parchiHouses: { number: number; amount: number }[][] = Array.from({ length: count }, () => []);
-    const parchiSums = new Array(count).fill(0);
-
-    for (const h of activeHouses) {
-      const chunks = houseSlices[h];
+      // Assign chunks to distinct parchis with lowest current sum
       const parchiIndices = Array.from({ length: count }, (_, i) => i);
       parchiIndices.sort((a, b) => parchiSums[a] - parchiSums[b]);
 
