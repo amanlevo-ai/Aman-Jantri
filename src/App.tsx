@@ -962,11 +962,12 @@ export default function App() {
       // 15 to 20 houses of 100 in First Parchi, and 15 to 20 houses of 100 in Second Parchi
       const maxFull = Math.min(20, Math.floor(activeHouses.length * 0.25));
       const minFull = Math.min(maxFull, 15);
-      const fullPerParchi = Math.floor(Math.random() * (maxFull - minFull + 1)) + minFull; // 15 to 20
-      const totalFull = fullPerParchi * 2;
+      const p0FullCount = Math.floor(Math.random() * (maxFull - minFull + 1)) + minFull; // 15 to 20
+      const p1FullCount = Math.floor(Math.random() * (maxFull - minFull + 1)) + minFull; // 15 to 20
+      const totalFull = p0FullCount + p1FullCount;
 
-      const p0Full = shuffled.slice(0, fullPerParchi);
-      const p1Full = shuffled.slice(fullPerParchi, totalFull);
+      const p0Full = shuffled.slice(0, p0FullCount);
+      const p1Full = shuffled.slice(p0FullCount, totalFull);
       const splitHouses = shuffled.slice(totalFull);
 
       // 1. Full 100 houses in Parchi 0 (BLANK in Parchi 1)
@@ -985,39 +986,53 @@ export default function App() {
         houseAllocation[h][0] = 0;
       }
 
-      // 3. Symmetrically split remaining houses (80/20, 60/40, 70/30, 90/10, 50/50)
-      const splitTypes = [
-        [90, 10],
-        [80, 20],
-        [70, 30],
-        [60, 40],
+      // 3. Split remaining houses with natural realistic pairs (80/20, 60/40, 70/30, 90/10, 50/50)
+      const splitPairs = [
+        [90, 10], [10, 90],
+        [80, 20], [20, 80],
+        [70, 30], [30, 70],
+        [60, 40], [40, 60],
         [50, 50]
-      ].sort(() => Math.random() - 0.5);
+      ];
 
-      for (let i = 0; i < splitHouses.length; i += 2) {
-        const pair = splitTypes[(i / 2) % splitTypes.length];
-        const h1 = splitHouses[i];
-        const h2 = splitHouses[i + 1];
+      for (const h of splitHouses) {
+        const pair = splitPairs[Math.floor(Math.random() * splitPairs.length)];
+        const b = houseBudgets[h] || topBoxAmount;
+        const p0Amt = Math.round((pair[0] / 100) * b);
+        const p1Amt = b - p0Amt;
 
-        const b1 = houseBudgets[h1] || topBoxAmount;
-        const p1Amt1 = Math.round((pair[0] / 100) * b1);
-        const p2Amt1 = b1 - p1Amt1;
+        parchiHouses[0].push({ number: h, amount: p0Amt });
+        houseAllocation[h][0] = p0Amt;
+        parchiHouses[1].push({ number: h, amount: p1Amt });
+        houseAllocation[h][1] = p1Amt;
+      }
 
-        parchiHouses[0].push({ number: h1, amount: p1Amt1 });
-        houseAllocation[h1][0] = p1Amt1;
-        parchiHouses[1].push({ number: h1, amount: p2Amt1 });
-        houseAllocation[h1][1] = p2Amt1;
+      // Keep natural variance around 100-200 (rebalancing slightly only if difference exceeds 250)
+      let sum0 = parchiHouses[0].reduce((s, h) => s + h.amount, 0);
+      let sum1 = parchiHouses[1].reduce((s, h) => s + h.amount, 0);
+      const maxAllowedDiff = 250;
 
-        if (h2) {
-          const b2 = houseBudgets[h2] || topBoxAmount;
-          // Invert ratio on partner house so both parchis stay balanced
-          const p1Amt2 = Math.round((pair[1] / 100) * b2);
-          const p2Amt2 = b2 - p1Amt2;
+      if (Math.abs(sum0 - sum1) > maxAllowedDiff) {
+        const shiftNeed = Math.floor((Math.abs(sum0 - sum1) - (Math.random() * 80 + 80)) / 20) * 10;
+        const higher = sum0 > sum1 ? 0 : 1;
+        const lower = sum0 > sum1 ? 1 : 0;
+        let shifted = 0;
 
-          parchiHouses[0].push({ number: h2, amount: p1Amt2 });
-          houseAllocation[h2][0] = p1Amt2;
-          parchiHouses[1].push({ number: h2, amount: p2Amt2 });
-          houseAllocation[h2][1] = p2Amt2;
+        for (const h of splitHouses) {
+          if (shifted >= shiftNeed) break;
+          const amtH = houseAllocation[h][higher];
+          const amtL = houseAllocation[h][lower];
+          if (amtH > amtL) {
+            const itemH = parchiHouses[higher].find(x => x.number === h);
+            const itemL = parchiHouses[lower].find(x => x.number === h);
+            if (itemH && itemL) {
+              itemH.amount = amtL;
+              itemL.amount = amtH;
+              houseAllocation[h][higher] = amtL;
+              houseAllocation[h][lower] = amtH;
+              shifted += (amtH - amtL);
+            }
+          }
         }
       }
     } else {
