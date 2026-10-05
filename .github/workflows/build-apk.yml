@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.9.4
-          name: Aman Jantri v3.9.4 (Strict 45-50 Houses Per Parchi, 15-20 Full 100s, Split Remaining)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Strict limit of 45 to 50 houses per parchi, 2) 15-20 houses of 100 in First Parchi, and 15-20 houses of 100 in Second Parchi, 3) Full 100 houses in one parchi are 0 (blank) in the other, 4) Remaining houses split symmetrically (80/20, 60/40, 70/30, 90/10, 50/50), 5) Natural realistic ±100-200 difference between parchis, 6) No house exceeds 100."
+          tag_name: v3.9.5
+          name: Aman Jantri v3.9.5 (Dynamic House Scaling by Parchi Count, Strict Budget & Total Limits)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) As the number of parchis increases, the number of houses per parchi decreases progressively (e.g. 2 parchis: ~45-50, 3 parchis: ~40-43, 5 parchis: ~24-26, 10 parchis: ~11-13, 20 parchis: ~5-7), 2) House budget limitation strictly intact: sum of any house across all parchis <= 100, 3) Grand total limitation intact: all active houses distributed, 4) Full 100 houses in one parchi are 0 (blank) in all other parchis, 5) Split houses only appear in 2 parchis (e.g. 80/20, 70/30, 60/40, 50/50), 6) Naturally balanced totals per parchi."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
