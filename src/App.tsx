@@ -959,16 +959,17 @@ export default function App() {
     for (const h of activeHouses) houseAllocation[h] = {};
 
     if (count === 2) {
+      // User Strict Rule: Houses per parchi MUST NOT exceed 45 to 50!
+      const targetCount0 = Math.min(activeHouses.length, Math.floor(Math.random() * 6) + 45); // 45 to 50
+      const targetCount1 = Math.min(activeHouses.length, Math.floor(Math.random() * 6) + 45); // 45 to 50
+
       // 15 to 20 houses of 100 in First Parchi, and 15 to 20 houses of 100 in Second Parchi
-      const maxFull = Math.min(20, Math.floor(activeHouses.length * 0.25));
-      const minFull = Math.min(maxFull, 15);
-      const p0FullCount = Math.floor(Math.random() * (maxFull - minFull + 1)) + minFull; // 15 to 20
-      const p1FullCount = Math.floor(Math.random() * (maxFull - minFull + 1)) + minFull; // 15 to 20
+      const p0FullCount = Math.floor(Math.random() * 6) + 15; // 15 to 20
+      const p1FullCount = Math.floor(Math.random() * 6) + 15; // 15 to 20
       const totalFull = p0FullCount + p1FullCount;
 
       const p0Full = shuffled.slice(0, p0FullCount);
       const p1Full = shuffled.slice(p0FullCount, totalFull);
-      const splitHouses = shuffled.slice(totalFull);
 
       // 1. Full 100 houses in Parchi 0 (BLANK in Parchi 1)
       for (const h of p0Full) {
@@ -986,7 +987,15 @@ export default function App() {
         houseAllocation[h][0] = 0;
       }
 
-      // 3. Split remaining houses with natural realistic pairs (80/20, 60/40, 70/30, 90/10, 50/50)
+      // Remaining slots to strictly keep house count between 45 and 50
+      const rem0 = targetCount0 - p0FullCount;
+      const rem1 = targetCount1 - p1FullCount;
+      const commonCount = Math.min(rem0, rem1);
+
+      const pool = shuffled.slice(totalFull);
+      const splitHouses = pool.slice(0, commonCount);
+
+      // 3. Symmetrically split houses (80/20, 60/40, 70/30, 90/10, 50/50)
       const splitPairs = [
         [90, 10], [10, 90],
         [80, 20], [20, 80],
@@ -1007,7 +1016,34 @@ export default function App() {
         houseAllocation[h][1] = p1Amt;
       }
 
-      // Keep natural variance around 100-200 (rebalancing slightly only if difference exceeds 250)
+      let poolCursor = commonCount;
+      if (rem0 > commonCount) {
+        const extra0 = pool.slice(poolCursor, poolCursor + (rem0 - commonCount));
+        poolCursor += extra0.length;
+        for (const h of extra0) {
+          const b = houseBudgets[h] || topBoxAmount;
+          const pct = [0.6, 0.7, 0.8, 0.9][Math.floor(Math.random() * 4)];
+          const amt = Math.max(10, Math.min(b, Math.round(b * pct)));
+          parchiHouses[0].push({ number: h, amount: amt });
+          houseAllocation[h][0] = amt;
+          houseAllocation[h][1] = 0;
+        }
+      }
+
+      if (rem1 > commonCount) {
+        const extra1 = pool.slice(poolCursor, poolCursor + (rem1 - commonCount));
+        poolCursor += extra1.length;
+        for (const h of extra1) {
+          const b = houseBudgets[h] || topBoxAmount;
+          const pct = [0.6, 0.7, 0.8, 0.9][Math.floor(Math.random() * 4)];
+          const amt = Math.max(10, Math.min(b, Math.round(b * pct)));
+          parchiHouses[1].push({ number: h, amount: amt });
+          houseAllocation[h][1] = amt;
+          houseAllocation[h][0] = 0;
+        }
+      }
+
+      // Balance natural difference within ±100-200
       let sum0 = parchiHouses[0].reduce((s, h) => s + h.amount, 0);
       let sum1 = parchiHouses[1].reduce((s, h) => s + h.amount, 0);
       const maxAllowedDiff = 250;
@@ -1104,7 +1140,8 @@ export default function App() {
 
       setGeneratedParchis(data);
       setIsJantriModalOpen(false);
-      setStatusMessage(`${data.length} parchis generated! Total: ₹${grandTotal.toLocaleString('en-IN')}`);
+      const genTotal = data.reduce((s, p) => s + p.totalAmount, 0);
+      setStatusMessage(`${data.length} parchis generated! Total: ₹${genTotal.toLocaleString('en-IN')}`);
       setTimeout(() => setStatusMessage(null), 6000);
 
       setTimeout(() => {
@@ -2320,7 +2357,10 @@ function renderJantriToCanvas(
                   <span>Generated Parchis ({generatedParchis.length})</span>
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                  Total Sum: <strong className="text-emerald-700 font-bold">₹{generatedParchis.reduce((s, p) => s + p.totalAmount, 0).toLocaleString('en-IN')}</strong> / ₹{grandTotal.toLocaleString('en-IN')}
+                  Total Sum: <strong className="text-emerald-700 font-bold">₹{generatedParchis.reduce((s, p) => s + p.totalAmount, 0).toLocaleString('en-IN')}</strong>
+                  {generatedParchis.length === 2 && (
+                    <span className="text-gray-500 font-medium"> (Parchi 1: ₹{generatedParchis[0]?.totalAmount.toLocaleString('en-IN')} + Parchi 2: ₹{generatedParchis[1]?.totalAmount.toLocaleString('en-IN')})</span>
+                  )}
                 </p>
               </div>
 
