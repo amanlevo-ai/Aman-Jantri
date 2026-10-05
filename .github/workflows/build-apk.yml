@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.9.6
-          name: Aman Jantri v3.9.6 (Exact Parchi House Scaling & Complete Total Preservation)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) 2 Parchis: ~45-56 houses per parchi with exact total preservation, 2) 3 Parchis: ~40-43 houses, 3) 4 Parchis: ~30-33 houses, 4) 5 Parchis: ~24-26 houses, 5) 10 Parchis: ~11-13 houses, 6) 20 Parchis: ~5-7 houses, 7) Strict house total limitation: sum of any house across all parchis <= 100, 8) Grand total limitation exact."
+          tag_name: v3.9.7
+          name: Aman Jantri v3.9.7 (Strict Limit on 100s, Realistic Diverse Amounts, Dynamic Scaling)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Strict limit on 100s (only 12-15 full 100s in 2 parchis, fewer as parchis increase) to avoid excessive repetition, 2) More houses in low parchis (~85 in 2 parchis) with diverse smaller amounts (80/20, 70/30, 60/40, 50/50), 3) House count decreases progressively as parchis increase (3: ~58, 4: ~44, 5: ~36, 10: ~18, 20: ~9), 4) House limitation: sum of any house across parchis <= 100, 5) Grand total exact."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk
