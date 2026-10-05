@@ -958,120 +958,7 @@ export default function App() {
     const houseAllocation: Record<number, Record<number, number>> = {};
     for (const h of activeHouses) houseAllocation[h] = {};
 
-    if (count === 2) {
-      // User Strict Rule: Houses per parchi MUST NOT exceed 45 to 50!
-      const targetCount0 = Math.min(activeHouses.length, Math.floor(Math.random() * 6) + 45); // 45 to 50
-      const targetCount1 = Math.min(activeHouses.length, Math.floor(Math.random() * 6) + 45); // 45 to 50
-
-      // 15 to 20 houses of 100 in First Parchi, and 15 to 20 houses of 100 in Second Parchi
-      const p0FullCount = Math.floor(Math.random() * 6) + 15; // 15 to 20
-      const p1FullCount = Math.floor(Math.random() * 6) + 15; // 15 to 20
-      const totalFull = p0FullCount + p1FullCount;
-
-      const p0Full = shuffled.slice(0, p0FullCount);
-      const p1Full = shuffled.slice(p0FullCount, totalFull);
-
-      // 1. Full 100 houses in Parchi 0 (BLANK in Parchi 1)
-      for (const h of p0Full) {
-        const amt = houseBudgets[h] || topBoxAmount;
-        parchiHouses[0].push({ number: h, amount: amt });
-        houseAllocation[h][0] = amt;
-        houseAllocation[h][1] = 0;
-      }
-
-      // 2. Full 100 houses in Parchi 1 (BLANK in Parchi 0)
-      for (const h of p1Full) {
-        const amt = houseBudgets[h] || topBoxAmount;
-        parchiHouses[1].push({ number: h, amount: amt });
-        houseAllocation[h][1] = amt;
-        houseAllocation[h][0] = 0;
-      }
-
-      // Remaining slots to strictly keep house count between 45 and 50
-      const rem0 = targetCount0 - p0FullCount;
-      const rem1 = targetCount1 - p1FullCount;
-      const commonCount = Math.min(rem0, rem1);
-
-      const pool = shuffled.slice(totalFull);
-      const splitHouses = pool.slice(0, commonCount);
-
-      // 3. Symmetrically split houses (80/20, 60/40, 70/30, 90/10, 50/50)
-      const splitPairs = [
-        [90, 10], [10, 90],
-        [80, 20], [20, 80],
-        [70, 30], [30, 70],
-        [60, 40], [40, 60],
-        [50, 50]
-      ];
-
-      for (const h of splitHouses) {
-        const pair = splitPairs[Math.floor(Math.random() * splitPairs.length)];
-        const b = houseBudgets[h] || topBoxAmount;
-        const p0Amt = Math.round((pair[0] / 100) * b);
-        const p1Amt = b - p0Amt;
-
-        parchiHouses[0].push({ number: h, amount: p0Amt });
-        houseAllocation[h][0] = p0Amt;
-        parchiHouses[1].push({ number: h, amount: p1Amt });
-        houseAllocation[h][1] = p1Amt;
-      }
-
-      let poolCursor = commonCount;
-      if (rem0 > commonCount) {
-        const extra0 = pool.slice(poolCursor, poolCursor + (rem0 - commonCount));
-        poolCursor += extra0.length;
-        for (const h of extra0) {
-          const b = houseBudgets[h] || topBoxAmount;
-          const pct = [0.6, 0.7, 0.8, 0.9][Math.floor(Math.random() * 4)];
-          const amt = Math.max(10, Math.min(b, Math.round(b * pct)));
-          parchiHouses[0].push({ number: h, amount: amt });
-          houseAllocation[h][0] = amt;
-          houseAllocation[h][1] = 0;
-        }
-      }
-
-      if (rem1 > commonCount) {
-        const extra1 = pool.slice(poolCursor, poolCursor + (rem1 - commonCount));
-        poolCursor += extra1.length;
-        for (const h of extra1) {
-          const b = houseBudgets[h] || topBoxAmount;
-          const pct = [0.6, 0.7, 0.8, 0.9][Math.floor(Math.random() * 4)];
-          const amt = Math.max(10, Math.min(b, Math.round(b * pct)));
-          parchiHouses[1].push({ number: h, amount: amt });
-          houseAllocation[h][1] = amt;
-          houseAllocation[h][0] = 0;
-        }
-      }
-
-      // Balance natural difference within ±100-200
-      let sum0 = parchiHouses[0].reduce((s, h) => s + h.amount, 0);
-      let sum1 = parchiHouses[1].reduce((s, h) => s + h.amount, 0);
-      const maxAllowedDiff = 250;
-
-      if (Math.abs(sum0 - sum1) > maxAllowedDiff) {
-        const shiftNeed = Math.floor((Math.abs(sum0 - sum1) - (Math.random() * 80 + 80)) / 20) * 10;
-        const higher = sum0 > sum1 ? 0 : 1;
-        const lower = sum0 > sum1 ? 1 : 0;
-        let shifted = 0;
-
-        for (const h of splitHouses) {
-          if (shifted >= shiftNeed) break;
-          const amtH = houseAllocation[h][higher];
-          const amtL = houseAllocation[h][lower];
-          if (amtH > amtL) {
-            const itemH = parchiHouses[higher].find(x => x.number === h);
-            const itemL = parchiHouses[lower].find(x => x.number === h);
-            if (itemH && itemL) {
-              itemH.amount = amtL;
-              itemL.amount = amtH;
-              houseAllocation[h][higher] = amtL;
-              houseAllocation[h][lower] = amtH;
-              shifted += (amtH - amtL);
-            }
-          }
-        }
-      }
-    } else if (count === 1) {
+    if (count === 1) {
       // 1 Parchi: all active houses included at full budget
       for (const h of activeHouses) {
         const amt = houseBudgets[h] || topBoxAmount;
@@ -1079,22 +966,37 @@ export default function App() {
         houseAllocation[h][0] = amt;
       }
     } else {
-      // General multi-parchi partition (count > 2):
-      // User Core Rule:
-      // "jaise jaise number of parchi increase hote jye ge house kam hote rahe ge. par yad rakna house ka total , grand total limitaion same he rahe ge"
-      // 1. House count per parchi scales down progressively as parchi count increases:
-      //    (e.g., count=3: ~38-42, count=4: ~28-32, count=5: ~22-26, count=10: ~11-13, count=20: ~5-7)
-      // 2. Strict house-level budget limitation: for every house h, sum across all parchis <= budget (never > 100).
-      //    If a house has 100 in one parchi, it is 0 (blank) in all other parchis.
-      // 3. Exact Grand Total preservation: all active houses distributed so total sum matches Grand Total.
-      // 4. Natural realistic balance between parchis.
+      // Dynamic multi-parchi partition (count >= 2):
+      // User Rules:
+      // - 2 Parchis: ~45-50 houses per parchi (agar 2 parchi hai ta house jada v ho sakte hai, e.g. 50-56)
+      // - 3 Parchis: ~40-43 houses per parchi
+      // - 4 Parchis: ~30-33 houses per parchi
+      // - 5 Parchis: ~24-26 houses per parchi
+      // - 10 Parchis: ~11-13 houses per parchi
+      // - 20 Parchis: ~5-7 houses per parchi
+      // Strict limitations:
+      // 1. House total limitation: for every house h, sum across all parchis <= budget (never > 100)
+      // 2. Disjoint full 100s: full 100 houses in one parchi are 0 (blank) in all other parchis
+      // 3. Split houses: split between 2 parchis (e.g. 80/20, 70/30, 60/40, 50/50), 0 in all others
+      // 4. Exact Grand Total intact: all active houses distributed so total sum matches Grand Total
+      // 5. Naturally balanced totals per parchi
 
       const parchiSums = new Array(count).fill(0);
       const parchiCounts = new Array(count).fill(0);
 
-      // Percentage of houses that split across 2 parchis (~12% to 25%)
-      const splitRatio = Math.min(0.25, Math.max(0.12, 0.30 - (count * 0.01)));
-      const numSplits = Math.min(activeHouses.length, Math.max(count, Math.floor(activeHouses.length * splitRatio)));
+      // Percentage of houses that split across 2 parchis tailored to exact user targets:
+      let splitRatio = 0.24;
+      if (count === 2) {
+        splitRatio = 0.12; // gives ~54-57 houses per parchi, preserving exact grand total
+      } else if (count === 3 || count === 4 || count === 5) {
+        splitRatio = 0.24; // gives 40-43 for 3, 30-33 for 4, 24-26 for 5
+      } else if (count <= 10) {
+        splitRatio = 0.20; // gives 11-13 for 10
+      } else {
+        splitRatio = 0.12; // gives 5-7 for 20
+      }
+
+      const numSplits = Math.min(activeHouses.length, Math.max(count === 2 ? 10 : count, Math.floor(activeHouses.length * splitRatio)));
 
       const splitHouses = shuffled.slice(0, numSplits);
       const fullHouses = shuffled.slice(numSplits);
