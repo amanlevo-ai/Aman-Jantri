@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.9.1
-          name: Aman Jantri v3.9.1 (Exact Grand Total Preservation, 45-55 Houses, Zero House Budget Violations)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Exact Grand Total Preservation (Parchi 1 + Parchi 2 = Grand Total), 2) House-wise conservation: if a number is 100 in one parchi it is 0 (blank) in the other, split houses sum to exactly 100 (e.g. 90/10, 80/20, 70/30, 60/40, 50/50), 3) Strictly 45 to 55 houses per parchi, 4) Zero house budget violations (never > 100)."
+          tag_name: v3.9.2
+          name: Aman Jantri v3.9.2 (15-20 Houses of 100 per Parchi, Remaining Split Symmetrically)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) 15-20 houses of 100 in First Parchi, and 15-20 houses of 100 in Second Parchi, 2) 100 houses in one parchi are 0 (blank) in the other, 3) Remaining houses split symmetrically across both parchis (80/20, 60/40, 70/30, 90/10, 50/50), 4) Exact Grand Total (P1+P2=Grand Total), 5) Zero house budget violations (never > 100)."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

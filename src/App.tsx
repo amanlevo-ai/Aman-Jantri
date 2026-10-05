@@ -942,12 +942,14 @@ export default function App() {
     // - Exactly 10 to 12 houses with full 100 (topBoxAmount)
     // - Remaining houses with diverse realistic amounts STRICTLY <= 100 (e.g. 40, 50, 60, 70, 80, 90)
     // - Absolutely NO number can exceed 100 (no 110, 120, 130)
-    // 3. User Core Rule (v3.9.1):
-    // - For ANY house: Parchi 1 + Parchi 2 = Master house budget (<= 100)
-    //   e.g. 01: P1=90, P2=10 (sum=100); 02: P1=100, P2=0 (blank, sum=100)
-    // - Strictly 45 to 55 houses per parchi
-    // - Parchi 1 + Parchi 2 = Exact Grand Total (e.g. 5,000 + 5,000 = 10,000)
-    // - Absolutely NO number exceeds master amount (100)
+    // 3. User Core Rule (v3.9.2):
+    // - 15 to 20 houses of 100 in First Parchi (Parchi 1)
+    // - 15 to 20 houses of 100 in Second Parchi (Parchi 2)
+    // - Full 100 houses in Parchi 1 are 0 (BLANK) in Parchi 2!
+    // - Full 100 houses in Parchi 2 are 0 (BLANK) in Parchi 1!
+    // - Remaining houses split symmetrically across both parchis (80/20, 60/40, 70/30, 90/10, 50/50)
+    // - Every house's total across parchis = exactly master budget (<= 100)
+    // - Exact Grand Total (e.g. 5,000 + 5,000 = 10,000)
 
     const activeHouses = Object.keys(houseBudgets).map(Number).filter(h => houseBudgets[h] > 0);
     const shuffled = [...activeHouses].sort(() => Math.random() - 0.5);
@@ -957,32 +959,33 @@ export default function App() {
     for (const h of activeHouses) houseAllocation[h] = {};
 
     if (count === 2) {
-      // Choose S split houses (between 6 and 10) so total houses per parchi is between 45 and 55
-      const maxS = Math.min(10, Math.floor(activeHouses.length * 0.2));
-      const minS = Math.min(maxS, 6);
-      const S = (minS % 2 !== 0) ? minS + 1 : minS;
+      // 15 to 20 houses of 100 in First Parchi, and 15 to 20 houses of 100 in Second Parchi
+      const maxFull = Math.min(20, Math.floor(activeHouses.length * 0.25));
+      const minFull = Math.min(maxFull, 15);
+      const fullPerParchi = Math.floor(Math.random() * (maxFull - minFull + 1)) + minFull; // 15 to 20
+      const totalFull = fullPerParchi * 2;
 
-      const splitHouses = shuffled.slice(0, S);
-      const fullHouses = shuffled.slice(S);
+      const p0Full = shuffled.slice(0, fullPerParchi);
+      const p1Full = shuffled.slice(fullPerParchi, totalFull);
+      const splitHouses = shuffled.slice(totalFull);
 
-      const halfFull = Math.floor(fullHouses.length / 2);
-      const p0Full = fullHouses.slice(0, halfFull);
-      const p1Full = fullHouses.slice(halfFull);
-
-      // Full houses: 100 in one parchi, BLANK (0) in the other!
+      // 1. Full 100 houses in Parchi 0 (BLANK in Parchi 1)
       for (const h of p0Full) {
         const amt = houseBudgets[h] || topBoxAmount;
         parchiHouses[0].push({ number: h, amount: amt });
         houseAllocation[h][0] = amt;
+        houseAllocation[h][1] = 0;
       }
 
+      // 2. Full 100 houses in Parchi 1 (BLANK in Parchi 0)
       for (const h of p1Full) {
         const amt = houseBudgets[h] || topBoxAmount;
         parchiHouses[1].push({ number: h, amount: amt });
         houseAllocation[h][1] = amt;
+        houseAllocation[h][0] = 0;
       }
 
-      // Symmetrically split pairs for split houses (e.g. 90/10, 80/20, 70/30, 60/40, 50/50)
+      // 3. Symmetrically split remaining houses (80/20, 60/40, 70/30, 90/10, 50/50)
       const splitTypes = [
         [90, 10],
         [80, 20],
@@ -991,7 +994,7 @@ export default function App() {
         [50, 50]
       ].sort(() => Math.random() - 0.5);
 
-      for (let i = 0; i < S; i += 2) {
+      for (let i = 0; i < splitHouses.length; i += 2) {
         const pair = splitTypes[(i / 2) % splitTypes.length];
         const h1 = splitHouses[i];
         const h2 = splitHouses[i + 1];
