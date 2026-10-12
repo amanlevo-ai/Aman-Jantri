@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.9.9
-          name: Aman Jantri v3.9.9 (Exact Paste Order & Clean Single Parchi Format)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Make Parchi in Custom Jantri preserves exact input/paste order without numerical sorting, 2) Clean Single Parchi format without requiring Parchi Number header, 3) 1-tap WhatsApp copy and native share buttons, 4) Universal Jantri distribution controls."
+          tag_name: v4.0.0
+          name: Aman Jantri v4.0.0 (Share Parchi as JPG Image on WhatsApp & Gallery)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Share Parchi as High-Resolution JPG Image directly to WhatsApp, Gallery or Native Share, 2) Clean Parchi layout with exact paste order preserved, 3) 1-tap WhatsApp text copy and share, 4) Complete Jantri & Custom entry tools."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

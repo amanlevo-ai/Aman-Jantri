@@ -725,6 +725,7 @@ export default function App() {
   const [isJantriModalOpen, setIsJantriModalOpen] = useState<boolean>(false);
   const [sharingJantriId, setSharingJantriId] = useState<number | null>(null);
   const [downloadingJantriId, setDownloadingJantriId] = useState<number | null>(null);
+  const [sharingParchiJpgId, setSharingParchiJpgId] = useState<number | null>(null);
 
   // Pull down to refresh app
   const [pullY, setPullY] = useState<number>(0);
@@ -1243,6 +1244,143 @@ export default function App() {
     }, 150);
   };
 
+// High-resolution Canvas renderer for Parchi as JPG image (WhatsApp crystal clear)
+function renderParchiToCanvas(
+  parchi: ParchiItem,
+  formatWithLeadingZero: (val: number | string) => string
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const width = 1400;
+  const padding = 70;
+  const contentWidth = width - padding * 2;
+
+  // Measure content first to calculate dynamic height
+  const tempCtx = canvas.getContext('2d');
+  const headerHeight = 130;
+  const footerHeight = 150;
+  const fontHouse = '600 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+  // Format entries
+  const entries = parchi.houses.map((h, i) => {
+    const formattedNum = formatWithLeadingZero(h.number);
+    const isLast = i === parchi.houses.length - 1;
+    return `${formattedNum}-${h.amount}${isLast ? '' : ', '}`;
+  });
+
+  // Calculate wrapped lines for houses
+  let lines: string[] = [];
+  if (tempCtx) {
+    tempCtx.font = fontHouse;
+    let currentLine = '';
+    for (const item of entries) {
+      const testLine = currentLine ? `${currentLine} ${item}` : item;
+      const metrics = tempCtx.measureText(testLine);
+      if (metrics.width > contentWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = item;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+  } else {
+    lines = [entries.join(' ')];
+  }
+
+  const lineHeight = 64;
+  const housesBodyHeight = Math.max(220, lines.length * lineHeight + 60);
+  const totalHeight = padding * 2 + headerHeight + housesBodyHeight + footerHeight;
+
+  canvas.width = width;
+  canvas.height = totalHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  // 1. Crisp White Background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, totalHeight);
+
+  // Subtle border card
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 4;
+  if ('roundRect' in ctx) {
+    ctx.beginPath();
+    (ctx as any).roundRect(padding / 2, padding / 2, width - padding, totalHeight - padding, 28);
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(padding / 2, padding / 2, width - padding, totalHeight - padding);
+  }
+
+  // 2. Header: Title ("Parchi" or "Parchi Number: X")
+  const titleText = parchi.parchiNumber > 0 ? `Parchi Number: ${parchi.parchiNumber}` : 'Parchi';
+  let curY = padding + 60;
+
+  ctx.fillStyle = '#21324a';
+  ctx.font = 'bold 58px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(titleText, padding + 20, curY);
+
+  // House Count Badge on Top Right
+  const badgeText = `${parchi.houses.length} Houses`;
+  ctx.font = '600 32px sans-serif';
+  const badgeMetrics = ctx.measureText(badgeText);
+  const badgeW = badgeMetrics.width + 36;
+  const badgeH = 50;
+  const badgeX = width - padding - 20 - badgeW;
+  const badgeY = curY - 42;
+
+  ctx.fillStyle = '#f1f5f9';
+  if ('roundRect' in ctx) {
+    ctx.beginPath();
+    (ctx as any).roundRect(badgeX, badgeY, badgeW, badgeH, 12);
+    ctx.fill();
+  } else {
+    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+  }
+  ctx.fillStyle = '#475569';
+  ctx.textAlign = 'center';
+  ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + 36);
+
+  // Divider
+  curY += 45;
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(padding + 20, curY);
+  ctx.lineTo(width - padding - 20, curY);
+  ctx.stroke();
+
+  // 3. Houses List Body (Rendered line by line)
+  curY += 60;
+  ctx.fillStyle = '#1e293b';
+  ctx.font = fontHouse;
+  ctx.textAlign = 'left';
+
+  for (const line of lines) {
+    ctx.fillText(line, padding + 20, curY);
+    curY += lineHeight;
+  }
+
+  // 4. Footer Banner: Total amount
+  curY += 20;
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(padding + 20, curY);
+  ctx.lineTo(width - padding - 20, curY);
+  ctx.stroke();
+
+  curY += 65;
+  ctx.fillStyle = '#1e3a8a';
+  ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Total amount: ₹${parchi.totalAmount.toLocaleString('en-IN')}`, padding + 20, curY);
+
+  return canvas;
+}
+
 // Pure HTML5 Canvas 2D Renderer for Jantri (Instant 5ms execution, crisp high resolution, zero CSS/DOM hang bugs)
 function renderJantriToCanvas(
   parchi: ParchiItem,
@@ -1570,6 +1708,103 @@ function renderJantriToCanvas(
       setTimeout(() => setStatusMessage(null), 3500);
     } finally {
       setSharingJantriId(null);
+    }
+  };
+
+  // Share Parchi as JPG Image (WhatsApp / Native Share / Gallery / Direct download)
+  const handleShareParchiAsJpg = async (parchi: ParchiItem) => {
+    try {
+      setSharingParchiJpgId(parchi.id);
+      const displayTitle = parchi.parchiNumber > 0 ? `Parchi #${parchi.parchiNumber}` : 'Parchi';
+      setStatusMessage(`Preparing ${displayTitle} JPG...`);
+
+      const canvas = renderParchiToCanvas(parchi, formatWithLeadingZero);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
+      const prefix = displayTitle.replace(/[\s#]+/g, '_');
+      const fileName = `${prefix}_Total_${parchi.totalAmount}.jpg`;
+      const base64Data = dataUrl.split(',')[1];
+
+      // 1. Android Capacitor Native App
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await NativeJantri.shareImage({
+            base64: base64Data,
+            fileName: fileName,
+          });
+          setStatusMessage(`${displayTitle} image ready to share!`);
+          setTimeout(() => setStatusMessage(null), 3000);
+          return;
+        } catch (nativeErr: any) {
+          console.warn('NativeJantri share error, trying fallback:', nativeErr);
+          try {
+            const savedFile = await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Cache,
+            });
+            const uriRes = await Filesystem.getUri({
+              directory: Directory.Cache,
+              path: fileName,
+            });
+            await Share.share({
+              title: displayTitle,
+              files: [uriRes.uri || savedFile.uri],
+              dialogTitle: `Share ${displayTitle} JPG`,
+            });
+            setStatusMessage(`${displayTitle} shared!`);
+            setTimeout(() => setStatusMessage(null), 3000);
+            return;
+          } catch (fallbackErr: any) {
+            console.error('All native parchi share failed:', fallbackErr);
+            alert(`Share failed: ${nativeErr?.message || fallbackErr?.message || 'Error'}`);
+            setStatusMessage('Share failed.');
+            setTimeout(() => setStatusMessage(null), 3500);
+            return;
+          }
+        }
+      }
+
+      // 2. Web Share API with File (Mobile browser WhatsApp share)
+      if (navigator.canShare) {
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: displayTitle,
+            });
+            setStatusMessage(`${displayTitle} image shared!`);
+            setTimeout(() => setStatusMessage(null), 3000);
+            return;
+          }
+        } catch (webShareErr: any) {
+          console.warn('Web Share failed', webShareErr);
+          if (webShareErr?.name === 'AbortError') {
+            return;
+          }
+        }
+      }
+
+      // 3. Fallback: Direct Download JPG
+      const downloadLink = document.createElement('a');
+      downloadLink.href = dataUrl;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      setStatusMessage(`${displayTitle} JPG downloaded!`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Failed to share Parchi JPG:', err);
+      alert('Error sharing Parchi JPG: ' + (err?.message || err));
+      setStatusMessage('Error sharing Parchi JPG.');
+      setTimeout(() => setStatusMessage(null), 3500);
+    } finally {
+      setSharingParchiJpgId(null);
     }
   };
 
@@ -2525,10 +2760,24 @@ function renderJantriToCanvas(
                         type="button"
                         onClick={() => handleShareSingleParchiText(parchi)}
                         className="text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold border border-emerald-200"
-                        title="Share on WhatsApp"
+                        title="Share as Text on WhatsApp"
                       >
                         <Share2 className="w-3.5 h-3.5" />
                         <span>Share</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareParchiAsJpg(parchi)}
+                        disabled={sharingParchiJpgId === parchi.id}
+                        className="text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold border border-blue-200 disabled:opacity-60"
+                        title="Share as JPG Image on WhatsApp / Gallery"
+                      >
+                        {sharingParchiJpgId === parchi.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                        ) : (
+                          <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                        <span>Share JPG</span>
                       </button>
                     </div>
                   </div>
