@@ -40,6 +40,7 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Crop,
+  FileText,
 } from 'lucide-react';
 import { ImageCropModal } from './components/ImageCropModal';
 
@@ -1159,6 +1160,85 @@ export default function App() {
     setTimeout(() => setCopiedParchiId(null), 2000);
   };
 
+  // Share single parchi text directly to WhatsApp / Native Share
+  const handleShareSingleParchiText = async (parchi: ParchiItem) => {
+    const text = `Parchi Number: ${parchi.parchiNumber}\n\n${parchi.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${parchi.totalAmount}`;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Share.share({
+          title: `Parchi #${parchi.parchiNumber}`,
+          text: text,
+          dialogTitle: 'Share Parchi',
+        });
+        return;
+      } catch (err: any) {
+        if (err?.message?.includes('canceled') || err?.message?.includes('cancelled')) return;
+      }
+    }
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Parchi #${parchi.parchiNumber}`,
+          text: text,
+        });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    navigator.clipboard.writeText(text);
+    setCopiedParchiId(parchi.id);
+    setStatusMessage('Parchi copied to clipboard! Ready to paste in WhatsApp.');
+    setTimeout(() => {
+      setCopiedParchiId(null);
+      setStatusMessage(null);
+    }, 2500);
+  };
+
+  // Make Single Parchi from Custom / Scanned numbers
+  const handleMakeCustomParchi = () => {
+    if (parsedCustomData.filledCount === 0 || parsedCustomData.totalSum <= 0) {
+      const msg = 'Please enter or paste parchi numbers in the text box first (e.g. 12=50, 15=100)';
+      setStatusMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    const houses: ParchiHouse[] = Object.entries(parsedCustomData.amountsMap)
+      .map(([k, amt]) => {
+        const num = parseInt(k, 10);
+        return {
+          number: formatWithLeadingZero(num),
+          amount: amt,
+        };
+      })
+      .sort((a, b) => {
+        const numA = parseInt(a.number, 10);
+        const numB = parseInt(b.number, 10);
+        return numA - numB;
+      });
+
+    const singleParchi: ParchiItem = {
+      id: 1,
+      parchiNumber: 1,
+      houses,
+      totalAmount: parsedCustomData.totalSum,
+    };
+
+    setGeneratedParchis([singleParchi]);
+    setStatusMessage(`Parchi generated! ${houses.length} houses, Total: ₹${parsedCustomData.totalSum.toLocaleString('en-IN')}`);
+    setTimeout(() => setStatusMessage(null), 5000);
+
+    setTimeout(() => {
+      const el = document.getElementById('parchi-results-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }
+    }, 150);
+  };
+
 // Pure HTML5 Canvas 2D Renderer for Jantri (Instant 5ms execution, crisp high resolution, zero CSS/DOM hang bugs)
 function renderJantriToCanvas(
   parchi: ParchiItem,
@@ -1910,9 +1990,20 @@ function renderJantriToCanvas(
 
             {isCustomMode && (
               <div className="mt-2.5 flex items-center justify-between text-xs flex-wrap gap-2">
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200">
                   {parsedCustomData.filledCount} Boxes Filled (₹{parsedCustomData.totalSum.toLocaleString('en-IN')})
                 </span>
+                <button
+                  type="button"
+                  id="make-custom-parchi-button"
+                  onClick={handleMakeCustomParchi}
+                  disabled={parsedCustomData.filledCount === 0}
+                  className="px-4 py-2 bg-[#21324a] hover:bg-[#2c4261] active:scale-95 text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs sm:text-sm"
+                  title="Make single parchi from pasted numbers"
+                >
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <span>Make Parchi</span>
+                </button>
               </div>
             )}
           </section>
@@ -2070,6 +2161,24 @@ function renderJantriToCanvas(
                 placeholder="Scanned numbers will appear here automatically (e.g. 12, 45 = 100, 25 = 500). You can also edit or type directly."
                 className="w-full bg-slate-50/70 border border-gray-300 rounded-lg p-2.5 text-xs sm:text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#21324a] focus:bg-white shadow-xs resize-y"
               />
+
+              {scanEntryText && (
+                <div className="mt-2 flex items-center justify-between text-xs flex-wrap gap-2">
+                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200">
+                    {parsedCustomData.filledCount} Numbers (₹{parsedCustomData.totalSum.toLocaleString('en-IN')})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleMakeCustomParchi}
+                    disabled={parsedCustomData.filledCount === 0}
+                    className="px-4 py-2 bg-[#21324a] hover:bg-[#2c4261] active:scale-95 text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs sm:text-sm"
+                    title="Make single parchi from scanned numbers"
+                  >
+                    <FileText className="w-4 h-4 text-amber-400" />
+                    <span>Make Parchi</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Touch Crop Modal - Opens automatically when photo clicked or uploaded */}
@@ -2213,7 +2322,17 @@ function renderJantriToCanvas(
               Grand Total: <span className="font-mono text-base sm:text-lg font-black text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
             {userTab !== 'jantri' && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleMakeCustomParchi}
+                  disabled={grandTotal <= 0}
+                  className="px-3.5 py-1.5 rounded-lg font-bold text-xs bg-[#21324a] hover:bg-[#2c4261] text-white flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  title="Make single parchi"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Make Parchi</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleShareCurrentJantri}
@@ -2327,14 +2446,14 @@ function renderJantriToCanvas(
         </section>
         )}
 
-        {/* Generated Parchis Display Section - Only Classic Parchi Text List (Only in Jantri Tab) */}
-        {userTab === 'jantri' && generatedParchis.length > 0 && (
+        {/* Generated Parchis Display Section - Classic Parchi Text List */}
+        {generatedParchis.length > 0 && (
           <section id="parchi-results-section" className="mt-6 mb-12 bg-white rounded-xl border border-gray-300 shadow-sm p-3.5 sm:p-6">
             {/* Results Section Header */}
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200 flex-wrap gap-3">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#21324a] flex items-center gap-2">
-                  <span>Generated Parchis ({generatedParchis.length})</span>
+                  <span>{generatedParchis.length === 1 ? 'Generated Parchi' : `Generated Parchis (${generatedParchis.length})`}</span>
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
                   Total Sum: <strong className="text-emerald-700 font-bold">₹{generatedParchis.reduce((s, p) => s + p.totalAmount, 0).toLocaleString('en-IN')}</strong>
@@ -2377,14 +2496,29 @@ function renderJantriToCanvas(
                       <button
                         type="button"
                         onClick={() => handleCopySingleParchi(parchi)}
-                        className="text-gray-400 hover:text-gray-700 p-1.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                        className="text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold border border-gray-200"
                         title="Copy this parchi"
                       >
                         {copiedParchiId === parchi.id ? (
-                          <Check className="w-4 h-4 text-emerald-600" />
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-600">Copied!</span>
+                          </>
                         ) : (
-                          <Copy className="w-4 h-4" />
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy</span>
+                          </>
                         )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareSingleParchiText(parchi)}
+                        className="text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold border border-emerald-200"
+                        title="Share on WhatsApp"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Share</span>
                       </button>
                     </div>
                   </div>
