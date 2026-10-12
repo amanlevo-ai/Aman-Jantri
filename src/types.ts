@@ -35,6 +35,7 @@ export interface UserProfile {
   lastLoginAt: string;
   isActive: boolean;
   createdAt: string;
+  lockedDeviceId?: string;
   plan?: UserPlan;
 }
 

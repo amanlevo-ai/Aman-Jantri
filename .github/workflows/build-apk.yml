@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v4.0.1
-          name: Aman Jantri v4.0.1 (Removed Copy Button, Fixed Button Overlay)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Removed redundant copy button to eliminate button overlay/clutter, 2) Clean responsive button bar with flex-wrap preventing any overlaps, 3) Share (Text) and Share JPG image buttons intact, 4) Exact paste order preserved."
+          tag_name: v4.0.2
+          name: Aman Jantri v4.0.2 (Demo User 1-Week Expiry & Hardware Device Lock)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Hardware device lock: account binds strictly to the first physical device logged in and cannot be opened on any other device, 2) Configured 7-day demo account (9988776655 / 123) with strict automatic expiry, 3) Share as JPG image and text options, 4) Complete Jantri distribution controls."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

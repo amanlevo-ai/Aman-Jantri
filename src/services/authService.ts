@@ -14,6 +14,21 @@ import { UserProfile, UserPlan } from "../types";
 
 const LOCAL_STORAGE_USER_KEY = "aman_jantri_auth_user";
 const LOCAL_STORAGE_TOKEN_KEY = "aman_jantri_session_token";
+const LOCAL_STORAGE_DEVICE_ID_KEY = "aman_jantri_device_id";
+
+// Get or create unique persistent device identifier
+export function getOrCreateLocalDeviceId(): string {
+  let devId = localStorage.getItem(LOCAL_STORAGE_DEVICE_ID_KEY);
+  if (!devId) {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      devId = "device_" + crypto.randomUUID();
+    } else {
+      devId = "device_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
+    }
+    localStorage.setItem(LOCAL_STORAGE_DEVICE_ID_KEY, devId);
+  }
+  return devId;
+}
 
 // Initialize Firebase App & Realtime Database if configured
 const app = isFirebaseConfigured()
@@ -72,6 +87,21 @@ function getMockUsers(): Record<string, UserProfile> {
         startDate: now.toISOString(),
         expiryDate: oneYearLater.toISOString(),
         planName: "1 Year Plan",
+      },
+    },
+    "9988776655": {
+      phoneNumber: "9988776655",
+      password: "123",
+      role: "user",
+      currentSessionToken: "",
+      lastLoginAt: "",
+      isActive: true,
+      createdAt: now.toISOString(),
+      plan: {
+        status: "active",
+        startDate: now.toISOString(),
+        expiryDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        planName: "7 Days Demo",
       },
     },
   };
@@ -163,11 +193,26 @@ export async function loginUser(
       throw new Error("Incorrect password. Please try again.");
     }
 
-    // Update RTDB with new session token (invalidates other active device sessions)
-    const updatedFields = {
+    // Hardware / Single Device Binding Check
+    // If account has an assigned lockedDeviceId, only that specific physical device can log in!
+    const localDeviceId = getOrCreateLocalDeviceId();
+    if (userData.role !== "admin") {
+      if (userData.lockedDeviceId && userData.lockedDeviceId !== localDeviceId) {
+        throw new Error(
+          "Device mismatch! This account is strictly locked to its original registered device and cannot be accessed from another device."
+        );
+      }
+    }
+
+    // Update RTDB with new session token and lock device if not yet locked
+    const updatedFields: Partial<UserProfile> = {
       currentSessionToken: sessionToken,
       lastLoginAt: new Date().toISOString(),
     };
+
+    if (userData.role !== "admin" && !userData.lockedDeviceId) {
+      updatedFields.lockedDeviceId = localDeviceId;
+    }
 
     await update(userRef, updatedFields);
 
@@ -195,6 +240,18 @@ export async function loginUser(
 
     if (user.password !== password) {
       throw new Error("Incorrect password. Please try again.");
+    }
+
+    const localDeviceId = getOrCreateLocalDeviceId();
+    if (user.role !== "admin") {
+      if (user.lockedDeviceId && user.lockedDeviceId !== localDeviceId) {
+        throw new Error(
+          "Device mismatch! This account is strictly locked to its original registered device and cannot be accessed from another device."
+        );
+      }
+      if (!user.lockedDeviceId) {
+        user.lockedDeviceId = localDeviceId;
+      }
     }
 
     user.currentSessionToken = sessionToken;
