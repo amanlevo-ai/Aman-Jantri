@@ -79,9 +79,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v3.9.8
-          name: Aman Jantri v3.9.8 (Custom Jantri Single Parchi Generation)
-          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Make Parchi button in Custom Jantri to instantly generate a single parchi with full formatted house list and total, 2) Direct WhatsApp copy and share buttons for single parchi, 3) Strict limit on 100s and dynamic house scaling across multi-parchi generation."
+          tag_name: v3.9.9
+          name: Aman Jantri v3.9.9 (Exact Paste Order & Clean Single Parchi Format)
+          body: "Direct Download APK for Aman Jantri (Android) - Featuring: 1) Make Parchi in Custom Jantri preserves exact input/paste order without numerical sorting, 2) Clean Single Parchi format without requiring Parchi Number header, 3) 1-tap WhatsApp copy and native share buttons, 4) Universal Jantri distribution controls."
           draft: false
           prerelease: false
           files: android/app/build/outputs/apk/**/*.apk

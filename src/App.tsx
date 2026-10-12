@@ -378,6 +378,7 @@ function SingleJantriBoxGrid({
 
 export interface FastEntryResult {
   amountsMap: Record<number, number>;
+  orderedEntries: { number: number; amount: number }[];
   filledCount: number;
   totalSum: number;
 }
@@ -391,8 +392,9 @@ export interface FastEntryResult {
  */
 export function parseFastEntryText(text: string): FastEntryResult {
   const amountsMap: Record<number, number> = {};
+  const orderedEntries: { number: number; amount: number }[] = [];
   if (!text || !text.trim()) {
-    return { amountsMap, filledCount: 0, totalSum: 0 };
+    return { amountsMap, orderedEntries, filledCount: 0, totalSum: 0 };
   }
 
   // Support user requirement: "agar text box mae data kae sath into likha hai capital or small usko mean v amount hai"
@@ -422,6 +424,7 @@ export function parseFastEntryText(text: string): FastEntryResult {
         const targetNum = n === 0 ? 100 : n;
         if (targetNum >= 1 && targetNum <= 100) {
           amountsMap[targetNum] = (amountsMap[targetNum] || 0) + amount;
+          orderedEntries.push({ number: targetNum, amount });
         }
       }
       continue;
@@ -439,13 +442,14 @@ export function parseFastEntryText(text: string): FastEntryResult {
 
     for (const num of numbers) {
       amountsMap[num] = (amountsMap[num] || 0) + amount;
+      orderedEntries.push({ number: num, amount });
     }
   }
 
   const filledCount = Object.keys(amountsMap).length;
   const totalSum = Object.values(amountsMap).reduce((a, b) => a + b, 0);
 
-  return { amountsMap, filledCount, totalSum };
+  return { amountsMap, orderedEntries, filledCount, totalSum };
 }
 
 export default function App() {
@@ -1154,7 +1158,8 @@ export default function App() {
 
   // Copy single parchi text (with 01, 02... formatting)
   const handleCopySingleParchi = (parchi: ParchiItem) => {
-    const text = `Parchi Number: ${parchi.parchiNumber}\n\n${parchi.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${parchi.totalAmount}`;
+    const headerLine = parchi.parchiNumber > 0 ? `Parchi Number: ${parchi.parchiNumber}\n\n` : '';
+    const text = `${headerLine}${parchi.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${parchi.totalAmount}`;
     navigator.clipboard.writeText(text);
     setCopiedParchiId(parchi.id);
     setTimeout(() => setCopiedParchiId(null), 2000);
@@ -1162,11 +1167,13 @@ export default function App() {
 
   // Share single parchi text directly to WhatsApp / Native Share
   const handleShareSingleParchiText = async (parchi: ParchiItem) => {
-    const text = `Parchi Number: ${parchi.parchiNumber}\n\n${parchi.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${parchi.totalAmount}`;
+    const headerLine = parchi.parchiNumber > 0 ? `Parchi Number: ${parchi.parchiNumber}\n\n` : '';
+    const titleText = parchi.parchiNumber > 0 ? `Parchi #${parchi.parchiNumber}` : 'Parchi';
+    const text = `${headerLine}${parchi.houses.map(h => `${formatWithLeadingZero(h.number)}-${h.amount}`).join(', ')}\n\nTotal amount: ${parchi.totalAmount}`;
     if (Capacitor.isNativePlatform()) {
       try {
         await Share.share({
-          title: `Parchi #${parchi.parchiNumber}`,
+          title: titleText,
           text: text,
           dialogTitle: 'Share Parchi',
         });
@@ -1178,7 +1185,7 @@ export default function App() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Parchi #${parchi.parchiNumber}`,
+          title: titleText,
           text: text,
         });
         return;
@@ -1195,7 +1202,7 @@ export default function App() {
     }, 2500);
   };
 
-  // Make Single Parchi from Custom / Scanned numbers
+  // Make Single Parchi from Custom / Scanned numbers (exact pasted order, no sorting, Parchi Number not required)
   const handleMakeCustomParchi = () => {
     if (parsedCustomData.filledCount === 0 || parsedCustomData.totalSum <= 0) {
       const msg = 'Please enter or paste parchi numbers in the text box first (e.g. 12=50, 15=100)';
@@ -1204,23 +1211,20 @@ export default function App() {
       return;
     }
 
-    const houses: ParchiHouse[] = Object.entries(parsedCustomData.amountsMap)
-      .map(([k, amt]) => {
-        const num = parseInt(k, 10);
-        return {
-          number: formatWithLeadingZero(num),
+    // Preserve exact sequence as entered/pasted into the text box
+    const houses: ParchiHouse[] = (parsedCustomData.orderedEntries && parsedCustomData.orderedEntries.length > 0)
+      ? parsedCustomData.orderedEntries.map((entry) => ({
+          number: formatWithLeadingZero(entry.number),
+          amount: entry.amount,
+        }))
+      : Object.entries(parsedCustomData.amountsMap).map(([k, amt]) => ({
+          number: formatWithLeadingZero(parseInt(k, 10)),
           amount: amt,
-        };
-      })
-      .sort((a, b) => {
-        const numA = parseInt(a.number, 10);
-        const numB = parseInt(b.number, 10);
-        return numA - numB;
-      });
+        }));
 
     const singleParchi: ParchiItem = {
       id: 1,
-      parchiNumber: 1,
+      parchiNumber: 0, // 0 signifies single custom parchi: number not required
       houses,
       totalAmount: parsedCustomData.totalSum,
     };
@@ -2486,9 +2490,15 @@ function renderJantriToCanvas(
                   className="pb-6 border-b border-gray-200 last:border-b-0 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <h3 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#21324a]">
-                      Parchi Number: {parchi.parchiNumber}
-                    </h3>
+                    {parchi.parchiNumber > 0 ? (
+                      <h3 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#21324a]">
+                        Parchi Number: {parchi.parchiNumber}
+                      </h3>
+                    ) : (
+                      <h3 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#21324a]">
+                        Parchi
+                      </h3>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className="text-xs bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded">
                         {parchi.houses.length} Houses
