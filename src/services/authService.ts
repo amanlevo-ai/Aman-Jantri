@@ -67,7 +67,7 @@ function getMockUsers(): Record<string, UserProfile> {
   const initial: Record<string, UserProfile> = {
     admin: {
       phoneNumber: "admin",
-      password: "admin",
+      password: "Deep1985#",
       role: "admin",
       currentSessionToken: "",
       lastLoginAt: now.toISOString(),
@@ -124,14 +124,14 @@ export async function initializeDefaultAdmin(): Promise<void> {
     if (!adminSnap.exists()) {
       await set(adminRef, {
         phoneNumber: "admin",
-        password: "admin",
+        password: "Deep1985#",
         role: "admin",
         currentSessionToken: "",
         lastLoginAt: new Date().toISOString(),
         isActive: true,
         createdAt: new Date().toISOString(),
       });
-      console.log("Default admin account created in Realtime Database: admin / admin");
+      console.log("Default admin account created in Realtime Database: admin / Deep1985#");
     }
   } catch (err) {
     console.warn("Could not check/create default admin in RTDB:", err);
